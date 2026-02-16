@@ -1,74 +1,183 @@
 const mongoose = require('mongoose');
 
-const complaintSchema = new mongoose.Schema(
-  {
-    complaintId: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    title: {
-      type: String,
-      required: [true, 'Please provide a title'],
-      trim: true,
-    },
-    description: {
-      type: String,
-      required: [true, 'Please provide a description'],
-    },
-    category: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category',
-      required: [true, 'Please select a category'],
-    },
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    status: {
-      type: String,
-      enum: ['pending', 'in-progress', 'resolved', 'rejected'],
-      default: 'pending',
-    },
-    priority: {
-      type: String,
-      enum: ['low', 'medium', 'high', 'urgent'],
-      default: 'medium',
-    },
-    location: {
-      type: String,
-      trim: true,
-    },
-    attachments: [
-      {
-        url: String,
-        publicId: String,
-        fileType: String,
-      },
-    ],
-    assignedTo: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
-    comments: [
-      {
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-        },
-        text: String,
-        createdAt: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
-    resolvedAt: Date,
+const complaintSchema = new mongoose.Schema({
+  complaintId: { 
+    type: String, 
+    unique: true 
   },
-  {
-    timestamps: true,
+  // Format: REX + year + 4-digit number, e.g. REX20240001
+
+  title: { 
+    type: String, 
+    required: true, 
+    maxlength: 100 
+  },
+  description: { 
+    type: String, 
+    required: true, 
+    maxlength: 1000 
+  },
+
+  category: { 
+    type: String, 
+    required: true,
+    enum: ['Road Maintenance', 'Street Lights', 'Water Supply',
+           'Garbage Collection', 'Drainage', 'Electricity', 'Other']
+  },
+
+  location: {
+    address: { 
+      type: String, 
+      required: true 
+    },
+    division: String,
+    zone: String,
+    ward: String,
+    latitude: Number,
+    longitude: Number
+  },
+
+  citizen: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  },
+  currentAuthority: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    default: null 
+  },
+
+  // RESPONSIBILITY LOCK — core feature
+  isResponsibilityLocked: { 
+    type: Boolean, 
+    default: false 
+  },
+
+  status: {
+    type: String,
+    enum: ['submitted', 'assigned', 'accepted', 'in_progress',
+           'pending_verification', 'resolved', 'rejected',
+           'escalated', 'reopened'],
+    default: 'submitted'
+  },
+
+  priority: { 
+    type: String, 
+    enum: ['low', 'medium', 'high', 'urgent'], 
+    default: 'medium' 
+  },
+
+  sla: {
+    expectedDays: Number,
+    deadline: Date,
+    isOverdue: { 
+      type: Boolean, 
+      default: false 
+    },
+    breachedAt: Date
+  },
+
+  // All photos: complaint evidence + resolution proof
+  evidencePhotos: [{
+    url: String,
+    publicId: String,
+    uploadedBy: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User' 
+    },
+    uploadedAt: { 
+      type: Date, 
+      default: Date.now 
+    },
+    photoType: { 
+      type: String, 
+      enum: ['complaint', 'resolution', 'verification'] 
+    }
+  }],
+
+  // FULL TIMELINE — every action recorded here
+  timeline: [{
+    action: {
+      type: String,
+      enum: ['submitted', 'assigned', 'accepted', 'forwarded',
+             'in_progress', 'resolved', 'rejected', 'escalated',
+             'reopened', 'verified', 'closed', 'commented']
+    },
+    performedBy: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User' 
+    },
+    fromAuthority: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User' 
+    },
+    toAuthority: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User' 
+    },
+    timestamp: { 
+      type: Date, 
+      default: Date.now 
+    },
+    details: String,
+    // If true: this entry is shown to citizen in timeline
+    isVisibleToCitizen: { 
+      type: Boolean, 
+      default: true 
+    }
+  }],
+
+  // SOFT CLOSE — citizen must confirm before closure
+  citizenVerification: {
+    isVerified: { 
+      type: Boolean, 
+      default: false 
+    },
+    verifiedAt: Date,
+    rating: { 
+      type: Number, 
+      min: 1, 
+      max: 5 
+    },
+    feedback: String
+  },
+
+  isAnonymous: { 
+    type: Boolean, 
+    default: false 
+  },
+  supportCount: { 
+    type: Number, 
+    default: 0 
+  },
+  supporters: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User' 
+  }],
+
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  },
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
   }
-);
+});
+
+// Pre-save: update updatedAt automatically
+complaintSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+// Indexes for query performance
+complaintSchema.index({ status: 1 });
+complaintSchema.index({ category: 1 });
+complaintSchema.index({ currentAuthority: 1 });
+complaintSchema.index({ createdAt: -1 });
+complaintSchema.index({ 'location.division': 1 });
+complaintSchema.index({ 'location.ward': 1 });
 
 module.exports = mongoose.model('Complaint', complaintSchema);

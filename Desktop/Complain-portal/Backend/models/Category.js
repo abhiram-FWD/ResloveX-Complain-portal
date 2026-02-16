@@ -1,29 +1,27 @@
 const mongoose = require('mongoose');
 
-const categorySchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: [true, 'Please provide a category name'],
-      unique: true,
-      trim: true,
-    },
-    description: {
-      type: String,
-      trim: true,
-    },
-    icon: {
-      type: String,
-      trim: true,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
+const categorySchema = new mongoose.Schema({
+  name: { 
+    type: String, 
+    required: true, 
+    unique: true 
   },
-  {
-    timestamps: true,
-  }
-);
+  slaInDays: { 
+    type: Number, 
+    required: true 
+  },
+  defaultDepartment: { 
+    type: String, 
+    required: true 
+  },
+  isActive: { 
+    type: Boolean, 
+    default: true 
+  },
+  escalationHierarchy: [{
+    level: Number,
+    designation: String
+  }]
+});
 
 module.exports = mongoose.model('Category', categorySchema);

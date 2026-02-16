@@ -15,7 +15,12 @@ const errorMiddleware = require('./middleware/errorMiddleware');
 dotenv.config();
 
 // Connect to database
-connectDB();
+const seedCategories = require('./config/seedCategories');
+
+// Connect to database
+connectDB().then(() => {
+  seedCategories();
+});
 
 // Create Express app
 const app = express();
