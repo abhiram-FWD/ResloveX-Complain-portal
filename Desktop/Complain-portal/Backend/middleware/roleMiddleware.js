@@ -14,4 +14,30 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { authorize };
+// Specific middleware for authority-only routes
+const authorityOnly = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Not authenticated' });
+  }
+
+  if (req.user.role !== 'authority' && req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+
+  next();
+};
+
+// Specific middleware for admin-only routes
+const adminOnly = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Not authenticated' });
+  }
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+
+  next();
+};
+
+module.exports = { authorize, authorityOnly, adminOnly };
