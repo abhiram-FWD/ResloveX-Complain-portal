@@ -13,9 +13,9 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'complaint-portal',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'],
-    transformation: [{ width: 1000, height: 1000, crop: 'limit' }],
+    folder: 'resolvex/complaints',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [{ width: 1200, quality: 'auto' }],
   },
 });
 
