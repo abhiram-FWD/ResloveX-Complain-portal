@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const dotenv = require('dotenv');
 const rateLimit = require('express-rate-limit');
+const cron = require('node-cron');
 const { Server } = require('socket.io');
 const connectDB = require('./config/db');
 const socketHandler = require('./socket/socketHandler');
@@ -73,6 +74,57 @@ app.use('/api/authority', require('./routes/authorityRoutes'));
 
 // Error handling middleware (must be last)
 app.use(errorMiddleware);
+
+// ─── SLA ESCALATION CRON JOB ────────────────────────
+// Runs every hour to check for overdue complaints
+cron.schedule('0 * * * *', async () => {
+  try {
+    const Complaint = require('./models/Complaint');
+    const now = new Date();
+
+    console.log(`[CRON] Running SLA escalation check at ${now.toISOString()}`);
+
+    const overdueComplaints = await Complaint.find({
+      'sla.deadline': { $lt: now },
+      'sla.isOverdue': false,
+      status: { $nin: ['resolved', 'rejected', 'escalated'] }
+    });
+
+    console.log(`[CRON] Found ${overdueComplaints.length} overdue complaints`);
+
+    for (const complaint of overdueComplaints) {
+      complaint.sla.isOverdue = true;
+      complaint.sla.breachedAt = now;
+      complaint.status = 'escalated';
+      complaint.timeline.push({
+        action: 'escalated',
+        timestamp: now,
+        details: 'Auto-escalated: SLA deadline exceeded',
+        isVisibleToCitizen: true
+      });
+
+      await complaint.save();
+
+      // Emit socket events
+      io.to(`complaint_${complaint.complaintId}`).emit('complaint_updated', {
+        complaintId: complaint.complaintId,
+        status: 'escalated',
+        action: 'escalated',
+        timestamp: now
+      });
+
+      io.to(`user_${complaint.citizen}`).emit('notification', {
+        message: `Your complaint ${complaint.complaintId} has been escalated due to SLA breach`,
+        type: 'warning',
+        complaintId: complaint.complaintId
+      });
+
+      console.log(`[CRON] Escalated complaint: ${complaint.complaintId}`);
+    }
+  } catch (error) {
+    console.error('[CRON] SLA escalation error:', error.message);
+  }
+});
 
 // Start server
 const PORT = process.env.PORT || 5000;
