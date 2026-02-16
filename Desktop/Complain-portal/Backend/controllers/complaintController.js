@@ -1,35 +1,92 @@
 const Complaint = require('../models/Complaint');
+const Category = require('../models/Category');
+const User = require('../models/User');
+const { upload } = require('../config/cloudinary');
 const { generateComplaintId } = require('../utils/generateId');
-const { sendNotification } = require('../utils/sendNotification');
+const { io } = require('../server');
 
+// ─── CREATE COMPLAINT ───────────────────────────────
 // @desc    Create a new complaint
 // @route   POST /api/complaints
 // @access  Private
-const createComplaint = async (req, res) => {
+exports.createComplaint = async (req, res) => {
   try {
-    const { title, description, category, location, priority } = req.body;
+    const { title, description, category, location, priority, isAnonymous } = req.body;
 
+    // Validate required fields
+    if (!title || !description || !category || !location || !location.address) {
+      return res.status(400).json({ 
+        message: 'Please provide title, description, category, and location address' 
+      });
+    }
+
+    // Fetch category SLA from Category model
+    const categoryDoc = await Category.findOne({ name: category });
+    if (!categoryDoc) {
+      return res.status(400).json({ message: 'Invalid category' });
+    }
+
+    // Calculate deadline based on SLA days
+    const slaInDays = categoryDoc.slaInDays;
+    const deadline = new Date(Date.now() + slaInDays * 86400000);
+
+    // Auto-set priority based on category
+    let autoPriority = priority || 'medium';
+    if (category === 'Water Supply' || category === 'Electricity') {
+      autoPriority = 'high';
+    }
+
+    // Generate complaint ID (await since it's async now)
+    const complaintId = await generateComplaintId();
+
+    // Handle uploaded photos
+    const evidencePhotos = req.files ? req.files.map(file => ({
+      url: file.path,
+      publicId: file.filename,
+      uploadedBy: req.user._id,
+      uploadedAt: Date.now(),
+      photoType: 'complaint'
+    })) : [];
+
+    // Create complaint with first timeline entry
     const complaint = await Complaint.create({
-      complaintId: generateComplaintId(),
+      complaintId,
       title,
       description,
       category,
       location,
-      priority: priority || 'medium',
-      user: req.user._id,
-      attachments: req.files ? req.files.map(file => ({
-        url: file.path,
-        publicId: file.filename,
-        fileType: file.mimetype,
-      })) : [],
+      priority: autoPriority,
+      isAnonymous: isAnonymous || false,
+      citizen: req.user._id,
+      evidencePhotos,
+      sla: {
+        expectedDays: slaInDays,
+        deadline,
+        isOverdue: false
+      },
+      timeline: [{
+        action: 'submitted',
+        performedBy: req.user._id,
+        timestamp: Date.now(),
+        details: 'Complaint submitted by citizen',
+        isVisibleToCitizen: true
+      }]
     });
 
-    const populatedComplaint = await Complaint.findById(complaint._id)
-      .populate('user', 'name email')
-      .populate('category', 'name');
+    // Emit socket event to authorities in same division
+    if (location.division) {
+      io.to(`division_${location.division}`).emit('new_complaint', {
+        complaintId,
+        title,
+        category,
+        location
+      });
+    }
 
-    // Send notification to authorities
-    sendNotification('new_complaint', populatedComplaint);
+    // Populate and return
+    const populatedComplaint = await Complaint.findById(complaint._id)
+      .populate('citizen', 'name')
+      .select('-__v');
 
     res.status(201).json(populatedComplaint);
   } catch (error) {
@@ -37,159 +94,124 @@ const createComplaint = async (req, res) => {
   }
 };
 
-// @desc    Get all complaints
+// ─── GET ALL COMPLAINTS (public) ────────────────────
+// @desc    Get all complaints with filtering and pagination
 // @route   GET /api/complaints
-// @access  Private
-const getComplaints = async (req, res) => {
+// @access  Public
+exports.getAllComplaints = async (req, res) => {
   try {
-    const { status, category, priority } = req.query;
+    const { status, category, division, ward, priority, page = 1, limit = 10 } = req.query;
+    
     const filter = {};
 
-    // Filter by user role
-    if (req.user.role === 'user') {
-      filter.user = req.user._id;
-    } else if (req.user.role === 'authority') {
-      filter.assignedTo = req.user._id;
-    }
-
-    // Apply additional filters
+    // Apply filters
     if (status) filter.status = status;
     if (category) filter.category = category;
+    if (division) filter['location.division'] = division;
+    if (ward) filter['location.ward'] = ward;
     if (priority) filter.priority = priority;
 
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const totalCount = await Complaint.countDocuments(filter);
+    const totalPages = Math.ceil(totalCount / parseInt(limit));
+
+    // Fetch complaints
     const complaints = await Complaint.find(filter)
-      .populate('user', 'name email phone')
-      .populate('category', 'name')
-      .populate('assignedTo', 'name email')
-      .sort({ createdAt: -1 });
+      .populate('citizen', 'name')
+      .populate('currentAuthority', 'name authorityInfo.designation authorityInfo.department authorityInfo.division')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select('-__v');
+
+    res.json({
+      complaints,
+      totalCount,
+      page: parseInt(page),
+      totalPages
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ─── GET SINGLE COMPLAINT (public) ──────────────────
+// @desc    Get single complaint by complaintId with SLA calculations
+// @route   GET /api/complaints/:id
+// @access  Public
+exports.getComplaintById = async (req, res) => {
+  try {
+    // Find by complaintId string (e.g., REX20240001), not MongoDB _id
+    const complaint = await Complaint.findOne({ complaintId: req.params.id })
+      .populate('citizen', 'name')
+      .populate('currentAuthority', 'name authorityInfo')
+      .populate('timeline.performedBy', 'name authorityInfo.designation authorityInfo.division')
+      .populate('timeline.fromAuthority', 'name authorityInfo.designation authorityInfo.division')
+      .populate('timeline.toAuthority', 'name authorityInfo.designation authorityInfo.division')
+      .select('-__v');
+
+    if (!complaint) {
+      return res.status(404).json({ message: 'Complaint not found' });
+    }
+
+    // Calculate time spent for each timeline entry
+    const timelineWithTimeSpent = complaint.timeline.map((entry, index) => {
+      let timeSpent = null;
+      if (index > 0) {
+        const previousEntry = complaint.timeline[index - 1];
+        const timeDiff = new Date(entry.timestamp) - new Date(previousEntry.timestamp);
+        timeSpent = Math.floor(timeDiff / 1000); // in seconds
+      }
+      return {
+        ...entry.toObject(),
+        timeSpent
+      };
+    });
+
+    // Calculate SLA remaining
+    const now = new Date();
+    const deadline = new Date(complaint.sla.deadline);
+    const timeRemaining = deadline - now;
+    const daysRemaining = Math.floor(timeRemaining / 86400000);
+    const hoursRemaining = Math.floor((timeRemaining % 86400000) / 3600000);
+    const isOverdue = timeRemaining < 0;
+    
+    const totalSlaTime = deadline - new Date(complaint.createdAt);
+    const timeUsed = now - new Date(complaint.createdAt);
+    const percentUsed = Math.min(100, Math.max(0, (timeUsed / totalSlaTime) * 100));
+
+    const slaRemaining = {
+      daysRemaining: Math.abs(daysRemaining),
+      hoursRemaining: Math.abs(hoursRemaining),
+      isOverdue,
+      percentUsed: Math.round(percentUsed)
+    };
+
+    // Return enriched complaint data
+    const complaintData = complaint.toObject();
+    complaintData.timeline = timelineWithTimeSpent;
+    complaintData.slaRemaining = slaRemaining;
+
+    res.json(complaintData);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ─── GET MY COMPLAINTS (citizen) ────────────────────
+// @desc    Get complaints for logged-in citizen
+// @route   GET /api/complaints/my
+// @access  Private
+exports.getMyComplaints = async (req, res) => {
+  try {
+    const complaints = await Complaint.find({ citizen: req.user._id })
+      .populate('currentAuthority', 'name authorityInfo.designation')
+      .sort({ createdAt: -1 })
+      .select('-__v');
 
     res.json(complaints);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-};
-
-// @desc    Get single complaint
-// @route   GET /api/complaints/:id
-// @access  Private
-const getComplaintById = async (req, res) => {
-  try {
-    const complaint = await Complaint.findById(req.params.id)
-      .populate('user', 'name email phone address')
-      .populate('category', 'name description')
-      .populate('assignedTo', 'name email')
-      .populate('comments.user', 'name');
-
-    if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
-    }
-
-    res.json(complaint);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// @desc    Update complaint status
-// @route   PUT /api/complaints/:id/status
-// @access  Private (Authority/Admin)
-const updateComplaintStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    const complaint = await Complaint.findById(req.params.id);
-
-    if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
-    }
-
-    complaint.status = status;
-    if (status === 'resolved') {
-      complaint.resolvedAt = Date.now();
-    }
-
-    await complaint.save();
-
-    const updatedComplaint = await Complaint.findById(complaint._id)
-      .populate('user', 'name email')
-      .populate('category', 'name');
-
-    // Send notification to user
-    sendNotification('status_update', updatedComplaint);
-
-    res.json(updatedComplaint);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// @desc    Add comment to complaint
-// @route   POST /api/complaints/:id/comments
-// @access  Private
-const addComment = async (req, res) => {
-  try {
-    const { text } = req.body;
-
-    const complaint = await Complaint.findById(req.params.id);
-
-    if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
-    }
-
-    complaint.comments.push({
-      user: req.user._id,
-      text,
-    });
-
-    await complaint.save();
-
-    const updatedComplaint = await Complaint.findById(complaint._id)
-      .populate('comments.user', 'name');
-
-    // Send notification
-    sendNotification('new_comment', updatedComplaint);
-
-    res.json(updatedComplaint);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// @desc    Assign complaint to authority
-// @route   PUT /api/complaints/:id/assign
-// @access  Private (Admin)
-const assignComplaint = async (req, res) => {
-  try {
-    const { authorityId } = req.body;
-
-    const complaint = await Complaint.findById(req.params.id);
-
-    if (!complaint) {
-      return res.status(404).json({ message: 'Complaint not found' });
-    }
-
-    complaint.assignedTo = authorityId;
-    complaint.status = 'in-progress';
-
-    await complaint.save();
-
-    const updatedComplaint = await Complaint.findById(complaint._id)
-      .populate('assignedTo', 'name email');
-
-    // Send notification
-    sendNotification('complaint_assigned', updatedComplaint);
-
-    res.json(updatedComplaint);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-module.exports = {
-  createComplaint,
-  getComplaints,
-  getComplaintById,
-  updateComplaintStatus,
-  addComment,
-  assignComplaint,
 };
