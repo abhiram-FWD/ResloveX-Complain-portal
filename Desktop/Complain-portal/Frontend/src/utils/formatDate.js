@@ -1,41 +1,27 @@
-import { format, formatDistanceToNow, formatDuration as fnsFormatDuration, intervalToDuration } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
-export const formatDate = (date) => {
-  if (!date) return '';
-  return format(new Date(date), 'd MMM yyyy, h:mm a');
-};
+export const formatDate = (date) =>
+  format(new Date(date), 'dd MMM yyyy, h:mm a');
 
-export const formatRelative = (date) => {
-  if (!date) return '';
-  return formatDistanceToNow(new Date(date), { addSuffix: true });
-};
+export const formatRelative = (date) =>
+  formatDistanceToNow(new Date(date), { addSuffix: true });
 
 export const formatDuration = (ms) => {
-  if (!ms || ms < 0) return '0m';
-  const duration = intervalToDuration({ start: 0, end: ms });
-  return fnsFormatDuration(duration, { format: ['days', 'hours', 'minutes'] });
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor((ms % 86400000) / 3600000);
+  if (days > 0) return `${days}d ${hours}h`;
+  return `${hours}h`;
 };
 
 export const calculateSLARemaining = (deadline) => {
-  if (!deadline) return { days: 0, hours: 0, isOverdue: false, percentUsed: 0 };
-  
   const now = new Date();
   const end = new Date(deadline);
-  const totalDuration = 3 * 24 * 60 * 60 * 1000; // Assuming 3 days default SLA for calculation base
-  const remaining = end - now;
-  const isOverdue = remaining < 0;
-  
-  const duration = intervalToDuration({ start: now, end: end });
-  
-  // Calculate percentage used (assuming 3 days standard, or based on creation if available)
-  // For now, simpler visual logic:
-  const percentUsed = Math.max(0, Math.min(100, 100 - (remaining / totalDuration * 100)));
-
+  const diff = end - now;
   return {
-    days: duration.days || 0,
-    hours: duration.hours || 0,
-    minutes: duration.minutes || 0,
-    isOverdue,
-    percentUsed: isOverdue ? 100 : percentUsed
+    isOverdue: diff < 0,
+    daysRemaining: Math.floor(Math.abs(diff) / 86400000),
+    hoursRemaining: Math.floor((Math.abs(diff) % 86400000) / 3600000),
+    percentUsed: Math.min(100, Math.max(0,
+      ((7 * 86400000 - diff) / (7 * 86400000)) * 100))
   };
 };
