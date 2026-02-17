@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, CheckCircle, Star, AlertTriangle } from 'lucide-react';
-import { getAssignedComplaints, getAuthorityStats } from '../services/complaintService';
+import { FileText, CheckCircle, Star, AlertTriangle, Upload, X, Loader as LoaderIcon } from 'lucide-react';
+import { getAssignedComplaints, getAuthorityStats, acceptComplaint, forwardComplaint, resolveComplaint } from '../services/complaintService';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../hooks/useSocket';
 import StatsCard from '../components/common/StatsCard';
@@ -18,6 +18,26 @@ const AuthorityDashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  
+  // Modal states
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  
+  // Accept modal state
+  const [acceptNote, setAcceptNote] = useState('');
+  const [acceptLoading, setAcceptLoading] = useState(false);
+  
+  // Forward modal state
+  const [forwardReason, setForwardReason] = useState('');
+  const [forwardToId, setForwardToId] = useState('');
+  const [forwardLoading, setForwardLoading] = useState(false);
+  
+  // Resolve modal state
+  const [resolveNote, setResolveNote] = useState('');
+  const [resolvePhotos, setResolvePhotos] = useState([]);
+  const [resolveLoading, setResolveLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -69,6 +89,115 @@ const AuthorityDashboard = () => {
     { key: 'urgent', label: 'Urgent' },
     { key: 'overdue', label: 'Overdue' }
   ];
+
+  // Modal handlers
+  const openAcceptModal = (complaint) => {
+    setSelectedComplaint(complaint);
+    setAcceptNote('');
+    setShowAcceptModal(true);
+  };
+
+  const openForwardModal = (complaint) => {
+    setSelectedComplaint(complaint);
+    setForwardReason('');
+    setForwardToId('');
+    setShowForwardModal(true);
+  };
+
+  const openResolveModal = (complaint) => {
+    setSelectedComplaint(complaint);
+    setResolveNote('');
+    setResolvePhotos([]);
+    setShowResolveModal(true);
+  };
+
+  const closeAllModals = () => {
+    if (acceptLoading || forwardLoading || resolveLoading) return;
+    setShowAcceptModal(false);
+    setShowForwardModal(false);
+    setShowResolveModal(false);
+    setSelectedComplaint(null);
+  };
+
+  const refreshComplaints = async () => {
+    try {
+      const data = await getAssignedComplaints();
+      setComplaints(data.complaints || []);
+    } catch (err) {
+      console.error('Failed to refresh complaints:', err);
+    }
+  };
+
+  // Accept handler
+  const handleAccept = async () => {
+    if (!selectedComplaint) return;
+    setAcceptLoading(true);
+    try {
+      await acceptComplaint(selectedComplaint.complaintId, acceptNote);
+      toast.success('Complaint accepted successfully');
+      closeAllModals();
+      await refreshComplaints();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to accept complaint');
+    } finally {
+      setAcceptLoading(false);
+    }
+  };
+
+  // Forward handler
+  const handleForward = async () => {
+    if (!selectedComplaint || forwardReason.length < 20) return;
+    setForwardLoading(true);
+    try {
+      await forwardComplaint(selectedComplaint.complaintId, forwardToId, forwardReason);
+      toast.success('Complaint forwarded successfully');
+      closeAllModals();
+      await refreshComplaints();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to forward complaint');
+    } finally {
+      setForwardLoading(false);
+    }
+  };
+
+  // Resolve handler
+  const handleResolve = async () => {
+    if (!selectedComplaint || !resolveNote || resolvePhotos.length === 0) return;
+    setResolveLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('resolutionNote', resolveNote);
+      resolvePhotos.forEach(photo => {
+        formData.append('resolutionPhotos', photo);
+      });
+      await resolveComplaint(selectedComplaint.complaintId, formData);
+      toast.success('Complaint marked as resolved');
+      closeAllModals();
+      await refreshComplaints();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to resolve complaint');
+    } finally {
+      setResolveLoading(false);
+    }
+  };
+
+  // Photo upload handler
+  const handlePhotoUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const validFiles = files.filter(file => {
+      const isValid = file.type.startsWith('image/');
+      const isUnder5MB = file.size <= 5 * 1024 * 1024;
+      if (!isUnder5MB) {
+        toast.error(`${file.name} is over 5MB`);
+      }
+      return isValid && isUnder5MB;
+    });
+    setResolvePhotos(prev => [...prev, ...validFiles].slice(0, 3));
+  };
+
+  const removePhoto = (index) => {
+    setResolvePhotos(prev => prev.filter((_, i) => i !== index));
+  };
 
   if (loading) {
     return <Loader />;
@@ -180,7 +309,7 @@ const AuthorityDashboard = () => {
                       <div className="flex flex-col gap-2 ml-4">
                         {(complaint.status === 'submitted' || complaint.status === 'assigned') && (
                           <button
-                            onClick={() => navigate(`/complaint/${complaint.complaintId}`)}
+                            onClick={() => openAcceptModal(complaint)}
                             className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
                           >
                             Accept
@@ -195,13 +324,13 @@ const AuthorityDashboard = () => {
                               In Progress
                             </button>
                             <button
-                              onClick={() => navigate(`/complaint/${complaint.complaintId}`)}
+                              onClick={() => openForwardModal(complaint)}
                               className="px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition-colors"
                             >
                               Forward
                             </button>
                             <button
-                              onClick={() => navigate(`/complaint/${complaint.complaintId}`)}
+                              onClick={() => openResolveModal(complaint)}
                               className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
                             >
                               Resolve
@@ -211,13 +340,13 @@ const AuthorityDashboard = () => {
                         {complaint.status === 'in_progress' && (
                           <>
                             <button
-                              onClick={() => navigate(`/complaint/${complaint.complaintId}`)}
+                              onClick={() => openForwardModal(complaint)}
                               className="px-3 py-1 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition-colors"
                             >
                               Forward
                             </button>
                             <button
-                              onClick={() => navigate(`/complaint/${complaint.complaintId}`)}
+                              onClick={() => openResolveModal(complaint)}
                               className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
                             >
                               Resolve
@@ -257,6 +386,196 @@ const AuthorityDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Accept Modal */}
+      {showAcceptModal && selectedComplaint && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          onClick={(e) => e.target === e.currentTarget && closeAllModals()}
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Accept Complaint</h3>
+            <p className="text-sm text-gray-600 mb-1">{selectedComplaint.title}</p>
+            <p className="text-xs text-gray-500 font-mono mb-4">{selectedComplaint.complaintId}</p>
+            
+            <textarea
+              value={acceptNote}
+              onChange={(e) => setAcceptNote(e.target.value)}
+              placeholder="Add a note..."
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3182ce] mb-4"
+            />
+            
+            <div className="flex gap-3">
+              <button
+                onClick={closeAllModals}
+                disabled={acceptLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAccept}
+                disabled={acceptLoading}
+                className="flex-1 px-4 py-2 bg-[#3182ce] text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {acceptLoading && <LoaderIcon className="animate-spin" size={16} />}
+                Confirm Accept
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Forward Modal */}
+      {showForwardModal && selectedComplaint && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          onClick={(e) => e.target === e.currentTarget && closeAllModals()}
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Forward Complaint</h3>
+            
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-orange-800">
+                <span className="font-semibold">⚠️ Warning:</span> The reason you provide WILL be visible to the citizen in their complaint timeline permanently.
+              </p>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for forwarding <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={forwardReason}
+                onChange={(e) => setForwardReason(e.target.value)}
+                placeholder="Explain why this complaint is being forwarded..."
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3182ce]"
+              />
+              <p className={`text-xs mt-1 ${forwardReason.length >= 20 ? 'text-green-600' : 'text-red-600'}`}>
+                {forwardReason.length}/20 minimum
+              </p>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Authority ID to forward to <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={forwardToId}
+                onChange={(e) => setForwardToId(e.target.value)}
+                placeholder="Enter authority ID"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3182ce]"
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={closeAllModals}
+                disabled={forwardLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleForward}
+                disabled={forwardLoading || forwardReason.length < 20 || !forwardToId}
+                className="flex-1 px-4 py-2 bg-[#3182ce] text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {forwardLoading && <LoaderIcon className="animate-spin" size={16} />}
+                Confirm Forward
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resolve Modal */}
+      {showResolveModal && selectedComplaint && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn"
+          onClick={(e) => e.target === e.currentTarget && closeAllModals()}
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Mark as Resolved</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Resolution Note <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={resolveNote}
+                onChange={(e) => setResolveNote(e.target.value)}
+                placeholder="Describe how the issue was resolved..."
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3182ce]"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Resolution Photos <span className="text-red-500">* (Min 1 photo)</span>
+              </label>
+              
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#3182ce] transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                  id="resolve-photo-upload"
+                />
+                <label htmlFor="resolve-photo-upload" className="cursor-pointer">
+                  <Upload className="mx-auto mb-2 text-gray-400" size={32} />
+                  <p className="text-sm text-gray-600">Click or drag photos here</p>
+                  <p className="text-xs text-gray-500 mt-1">Max 3 photos, 5MB each</p>
+                </label>
+              </div>
+              
+              {resolvePhotos.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  {resolvePhotos.map((photo, idx) => (
+                    <div key={idx} className="relative">
+                      <img
+                        src={URL.createObjectURL(photo)}
+                        alt={`Preview ${idx + 1}`}
+                        className="w-full h-24 object-cover rounded"
+                      />
+                      <button
+                        onClick={() => removePhoto(idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={closeAllModals}
+                disabled={resolveLoading}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResolve}
+                disabled={resolveLoading || !resolveNote || resolvePhotos.length === 0}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {resolveLoading && <LoaderIcon className="animate-spin" size={16} />}
+                Mark Resolved
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
