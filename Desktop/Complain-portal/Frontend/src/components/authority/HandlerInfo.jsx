@@ -1,68 +1,80 @@
 import React from 'react';
+import { formatDate, formatDuration } from '../../utils/formatDate';
 
-const HandlerInfo = ({ handler }) => {
-  if (!handler) {
+const HandlerInfo = ({ authority, assignedAt, handlingFor }) => {
+  if (!authority) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <h3 className="font-semibold text-gray-900 mb-2">Handler Information</h3>
-        <p className="text-sm text-gray-500">Not yet assigned to an officer</p>
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <p className="text-yellow-800 font-medium">
+          ⏳ Awaiting assignment to division officer
+        </p>
       </div>
     );
   }
 
+  // Calculate if SLA is breached (assuming 7 days SLA)
+  const assignedDate = new Date(assignedAt);
+  const now = new Date();
+  const daysSinceAssigned = Math.floor((now - assignedDate) / (1000 * 60 * 60 * 24));
+  const isOverdue = daysSinceAssigned > 7;
+
   return (
-    <div className="bg-white rounded-lg shadow-md p-4">
-      <h3 className="font-semibold text-gray-900 mb-3">Handler Information</h3>
-      
-      <div className="space-y-2">
-        <div>
-          <p className="text-xs text-gray-500">Name</p>
-          <p className="text-sm font-medium text-gray-900">{handler.name}</p>
+    <div className="bg-white rounded-lg shadow-md overflow-hidden" style={{ borderLeft: '4px solid #3182ce' }}>
+      <div className="p-4">
+        <p className="text-xs text-gray-500 mb-2">Currently Handled By</p>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">{authority.name}</h3>
+        
+        <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-3">
+          {authority.designation}
+        </span>
+        
+        <p className="text-sm text-gray-600 mb-3">{authority.department}</p>
+        
+        <div className="border-t border-gray-200 pt-3 mb-3 space-y-2">
+          {(authority.division || authority.zone || authority.ward) && (
+            <p className="text-sm text-gray-700">
+              📍 {authority.division && `Division: ${authority.division}`}
+              {authority.zone && `, Zone: ${authority.zone}`}
+              {authority.ward && `, Ward: ${authority.ward}`}
+            </p>
+          )}
+          
+          {authority.jurisdictionArea && (
+            <p className="text-sm text-gray-700">
+              📋 Jurisdiction: {authority.jurisdictionArea}
+            </p>
+          )}
+          
+          {authority.email && (
+            <p className="text-sm">
+              ✉️{' '}
+              <a 
+                href={`mailto:${authority.email}`}
+                className="text-blue-600 hover:underline"
+              >
+                {authority.email}
+              </a>
+            </p>
+          )}
         </div>
+      </div>
 
-        <div>
-          <p className="text-xs text-gray-500">Designation</p>
-          <p className="text-sm text-gray-700">{handler.designation}</p>
-        </div>
-
-        {handler.department && (
-          <div>
-            <p className="text-xs text-gray-500">Department</p>
-            <p className="text-sm text-gray-700">{handler.department}</p>
-          </div>
+      {/* Bottom Section */}
+      <div className="bg-blue-50 px-4 py-3 space-y-1">
+        {assignedAt && (
+          <p className="text-xs text-gray-700">
+            <span className="font-medium">Accepted on:</span> {formatDate(assignedAt)}
+          </p>
         )}
-
-        {handler.division && (
-          <div>
-            <p className="text-xs text-gray-500">Division</p>
-            <p className="text-sm text-gray-700">{handler.division}</p>
-          </div>
+        {handlingFor && (
+          <p className="text-xs text-gray-700">
+            <span className="font-medium">Handling for:</span> {handlingFor}
+          </p>
         )}
-
-        {handler.zone && (
-          <div>
-            <p className="text-xs text-gray-500">Zone</p>
-            <p className="text-sm text-gray-700">{handler.zone}</p>
-          </div>
-        )}
-
-        {handler.email && (
-          <div>
-            <p className="text-xs text-gray-500">Contact</p>
-            <a 
-              href={`mailto:${handler.email}`}
-              className="text-sm text-blue-600 hover:underline"
-            >
-              {handler.email}
-            </a>
-          </div>
-        )}
-
-        {handler.phone && (
-          <div>
-            <p className="text-xs text-gray-500">Phone</p>
-            <p className="text-sm text-gray-700">{handler.phone}</p>
-          </div>
+        {isOverdue && (
+          <span className="inline-block px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold mt-2">
+            ⚠️ SLA Breached
+          </span>
         )}
       </div>
     </div>
