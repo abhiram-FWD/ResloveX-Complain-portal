@@ -1,260 +1,324 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  ShieldCheck, 
-  Zap, 
-  Eye, 
-  CheckCircle, 
-  FileText, 
-  UserCheck, 
-  Lock, 
-  Clock, 
-  Camera, 
-  User, 
-  TrendingUp,
-  X,
-  Check
-} from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import dashboardService from '../services/dashboardService';
-import Loader from '../components/common/Loader';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Shield, Zap, Eye, CheckCircle, Lock, Clock, Camera, User, TrendingUp } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { getPublicDashboard } from '../services/complaintService';
 
 const Home = () => {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { isAuthenticated, isCitizen, isAuthority } = useAuth();
   const [stats, setStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data = await dashboardService.getPublicStats();
+        const data = await getPublicDashboard();
         setStats(data);
-      } catch (error) {
-        console.error('Failed to fetch public stats:', error);
-        // Fallback stats in case of error
-        setStats({
-          totalResolved: 0,
-          onTimePercentage: 0,
-          avgResolutionDays: 0,
-          activeComplaints: 0
-        });
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
       } finally {
-        setLoadingStats(false);
+        setStatsLoading(false);
       }
     };
-
     fetchStats();
   }, []);
 
+  const handleDashboardClick = () => {
+    if (isCitizen) {
+      navigate('/dashboard/citizen');
+    } else if (isAuthority) {
+      navigate('/dashboard/authority');
+    } else {
+      navigate('/');
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-16 pb-12">
-      {/* Section 1: Hero Card */}
-      <section className="container mx-auto px-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center max-w-4xl mx-auto mt-8">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Report. Track. <span className="text-[#3182ce]">Resolve.</span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Section 1 - Hero Card */}
+      <section className="py-16 px-4">
+        <div className="max-w-[800px] mx-auto bg-white rounded-lg shadow-md p-12 text-center">
+          <h1 className="text-5xl font-bold text-gray-900 mb-4">
+            Report. Track. Resolve.
           </h1>
-          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
+          <p className="text-xl text-gray-600 mb-8">
             A transparent complaint system where every issue gets the attention it deserves.
-            Join thousands of citizens making a difference.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {user ? (
-              <Link
-                to={`/dashboard/${user.role}`}
-                className="bg-[#3182ce] hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors text-lg"
-              >
-                Go to Dashboard
-              </Link>
-            ) : (
-              <Link
-                to="/file-complaint"
-                className="bg-[#3182ce] hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors text-lg"
+          
+          {!isAuthenticated ? (
+            <div className="flex gap-4 justify-center flex-wrap">
+              <button
+                onClick={() => navigate('/file-complaint')}
+                className="bg-[#3182ce] text-white px-8 py-3 rounded-lg font-medium text-lg hover:bg-blue-700 transition-colors"
               >
                 File a Complaint
-              </Link>
-            )}
-            <Link
-              to="/track"
-              className="bg-white border-2 border-gray-200 hover:border-[#3182ce] text-gray-700 hover:text-[#3182ce] px-8 py-3 rounded-lg font-semibold transition-all text-lg"
-            >
-              Track Complaint
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 2: Trust Badges */}
-      <section className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
-          {[
-            { icon: Lock, text: "100% Secure" },
-            { icon: Zap, text: "Instant Assignment" },
-            { icon: Eye, text: "Full Transparency" },
-            { icon: CheckCircle, text: "Verified Results" }
-          ].map((badge, index) => (
-            <div key={index} className="flex items-center justify-center gap-2 text-gray-600 bg-white py-3 rounded-xl border border-gray-100 shadow-sm">
-              <badge.icon className="w-5 h-5 text-[#3182ce]" />
-              <span className="font-medium">{badge.text}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Section 3: Live Stats Bar */}
-      <section className="w-full bg-gradient-to-r from-blue-600 to-purple-600 py-12 text-white">
-        <div className="container mx-auto px-4">
-          {loadingStats ? (
-            <div className="flex justify-center">
-              <Loader />
+              </button>
+              <button
+                onClick={() => navigate('/track')}
+                className="border-2 border-[#3182ce] text-[#3182ce] px-8 py-3 rounded-lg font-medium text-lg hover:bg-blue-50 transition-colors"
+              >
+                Track Complaint
+              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-white/20">
-              <div>
-                <div className="text-4xl font-bold mb-1">{stats?.totalResolved || 0}</div>
-                <div className="text-blue-100">Issues Resolved</div>
-              </div>
-              <div>
-                <div className="text-4xl font-bold mb-1">{stats?.onTimePercentage || 0}%</div>
-                <div className="text-blue-100">On-Time Resolution</div>
-              </div>
-              <div>
-                <div className="text-4xl font-bold mb-1">{stats?.avgResolutionDays || 0}</div>
-                <div className="text-blue-100">Avg Days to Fix</div>
-              </div>
-              <div>
-                <div className="text-4xl font-bold mb-1">{stats?.activeComplaints || 0}</div>
-                <div className="text-blue-100">Active Complaints</div>
-              </div>
-            </div>
+            <button
+              onClick={handleDashboardClick}
+              className="bg-[#3182ce] text-white px-8 py-3 rounded-lg font-medium text-lg hover:bg-blue-700 transition-colors"
+            >
+              Go to Dashboard
+            </button>
           )}
         </div>
       </section>
 
-      {/* Section 4: Problem vs Solution */}
-      <section className="container mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center mb-12">Why Choose ResolveX?</h2>
-        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-          {/* Traditional Portals */}
-          <div className="bg-white p-8 rounded-2xl border-2 border-red-100 shadow-sm">
-            <h3 className="text-xl font-bold text-red-600 mb-6 pb-4 border-b border-red-50">Traditional Portals</h3>
-            <div className="space-y-4">
-              {[
-                "Complaints get lost in the system",
-                "No accountability for officials",
-                "Indefinite waiting periods",
-                "Zero transparency on progress",
-                "Manual paper-based processing"
-              ].map((item, i) => (
-                <div key={i} className="flex items-start gap-3 text-gray-600">
-                  <X className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ResolveX */}
-          <div className="bg-white p-8 rounded-2xl border-2 border-green-100 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
-              BETTER WAY
-            </div>
-            <h3 className="text-xl font-bold text-green-600 mb-6 pb-4 border-b border-green-50">ResolveX Platform</h3>
-            <div className="space-y-4">
-              {[
-                "Real-time tracking available",
-                "Strict SLA & deadlines",
-                "Auto-escalation if delayed",
-                "Full audit trail visible",
-                "Digital, instant processing"
-              ].map((item, i) => (
-                <div key={i} className="flex items-start gap-3 text-gray-700 font-medium">
-                  <Check className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 5: How It Works */}
-      <section className="container mx-auto px-4 bg-gray-50 py-16 rounded-3xl">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">How It Works</h2>
-          <div className="relative">
-            {/* Vertical Line */}
-            <div className="absolute left-[27px] top-0 bottom-0 w-0.5 bg-gray-200"></div>
-            
-            <div className="space-y-12">
-              {[
-                { title: "Submit Complaint", desc: "File your issue with photos and location details in under 2 minutes." },
-                { title: "Auto-Assigned", desc: "System instantly routes your complaint to the relevant department." },
-                { title: "Authority Action", desc: "Official accepts liability and provides an estimated resolution date." },
-                { title: "Track Progress", desc: "Watch the status change in real-time with SLA countdown timers." },
-                { title: "Verification", desc: "You verify the solution before the complaint can be officially closed." }
-              ].map((step, index) => (
-                <div key={index} className="relative flex gap-8">
-                  <div className="relative z-10 flex items-center justify-center w-14 h-14 rounded-full bg-white border-4 border-[#3182ce] text-[#3182ce] font-bold text-xl shadow-sm shrink-0">
-                    {index + 1}
-                  </div>
-                  <div className="pt-2">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{step.title}</h3>
-                    <p className="text-gray-600">{step.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 6: Key Features */}
-      <section className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Powerful Features</h2>
-          <p className="text-gray-600">Designed to bridge the gap between citizens and authorities</p>
-        </div>
-        
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {[
-            { icon: Lock, title: "Responsibility Lock", desc: "Officials must accept complaints to start the timer." },
-            { icon: Clock, title: "SLA Countdown", desc: "Visual timers ensure complaints aren't ignored." },
-            { icon: Camera, title: "Photo Proof", desc: "Mandatory updated photos required for closure." },
-            { icon: User, title: "Know Your Handler", desc: "See exactly who is working on your issue." },
-            { icon: UserCheck, title: "Citizen Verification", desc: "Only you can close the complaint after satisfaction." },
-            { icon: TrendingUp, title: "Auto-Escalation", desc: "Unresolved issues automatically move to higher authorities." }
-          ].map((feature, index) => (
-            <div key={index} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mb-4 text-[#3182ce]">
-                <feature.icon className="w-6 h-6" />
+      {/* Section 2 - Trust Badges */}
+      <section className="py-12 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { icon: '🔒', text: '100% Secure' },
+              { icon: '⚡', text: 'Instant Assignment' },
+              { icon: '👁️', text: 'Full Transparency' },
+              { icon: '✅', text: 'Verified Results' }
+            ].map((badge, idx) => (
+              <div key={idx} className="bg-white rounded-lg shadow-md p-6 text-center">
+                <div className="text-3xl mb-2">{badge.icon}</div>
+                <p className="font-medium text-gray-900">{badge.text}</p>
               </div>
-              <h3 className="text-lg font-bold mb-2">{feature.title}</h3>
-              <p className="text-gray-600 text-sm">{feature.desc}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Section 7: CTA Banner */}
-      <section className="container mx-auto px-4 mb-8">
-        <div className="bg-gradient-to-r from-[#3182ce] to-blue-600 rounded-3xl p-12 text-center text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <h2 className="text-3xl font-bold mb-6">Ready to Make Your Voice Heard?</h2>
-            <p className="text-blue-100 mb-8 max-w-2xl mx-auto">
-              Join the movement for better governance. It takes less than 2 minutes to file your first complaint.
-            </p>
-            <Link
-              to="/register"
-              className="inline-block bg-white text-[#3182ce] hover:bg-gray-100 px-8 py-3 rounded-lg font-bold transition-colors shadow-lg"
-            >
-              Get Started Free
-            </Link>
+      {/* Section 3 - Live Stats Bar */}
+      <section className="py-12 px-4">
+        <div 
+          className="max-w-6xl mx-auto rounded-lg shadow-lg p-8"
+          style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {statsLoading ? (
+              <>
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="text-center">
+                    <div className="h-8 bg-white bg-opacity-30 rounded mb-2 animate-pulse" />
+                    <div className="h-4 bg-white bg-opacity-20 rounded animate-pulse" />
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <div className="text-center text-white">
+                  <p className="text-3xl font-bold">{stats?.resolvedComplaints || 0}</p>
+                  <p className="text-sm opacity-90">Issues Resolved</p>
+                </div>
+                <div className="text-center text-white">
+                  <p className="text-3xl font-bold">
+                    {stats?.totalComplaints > 0 
+                      ? Math.round((stats.resolvedOnTime / stats.totalComplaints) * 100) 
+                      : 0}%
+                  </p>
+                  <p className="text-sm opacity-90">On-Time Resolution</p>
+                </div>
+                <div className="text-center text-white">
+                  <p className="text-3xl font-bold">{stats?.avgResolutionDays?.toFixed(1) || 0}</p>
+                  <p className="text-sm opacity-90">Avg Days to Fix</p>
+                </div>
+                <div className="text-center text-white">
+                  <p className="text-3xl font-bold">
+                    {stats?.totalComplaints - stats?.resolvedComplaints || 0}
+                  </p>
+                  <p className="text-sm opacity-90">Active Complaints</p>
+                </div>
+              </>
+            )}
           </div>
+        </div>
+      </section>
+
+      {/* Section 4 - Problem vs Solution */}
+      <section className="py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Problem Card */}
+            <div className="bg-white rounded-lg shadow-md p-8 border-l-4 border-[#fc8181]">
+              <h2 className="text-2xl font-bold text-red-600 mb-6">❌ Traditional Portals</h2>
+              <div className="space-y-4">
+                {[
+                  'Complaints vanish with no tracking',
+                  'No idea who is handling your issue',
+                  'Issues closed without real fixing',
+                  'No deadlines or accountability',
+                  'Complaints forwarded silently'
+                ].map((point, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <span className="text-red-500 text-xl">✗</span>
+                    <p className="text-gray-700">{point}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Solution Card */}
+            <div className="bg-white rounded-lg shadow-md p-8 border-l-4 border-[#68d391]">
+              <h2 className="text-2xl font-bold text-green-600 mb-6">✅ ResolveX</h2>
+              <div className="space-y-4">
+                {[
+                  'Real-time tracking at every stage',
+                  'See exact officer name and division',
+                  'Photo proof required before closure',
+                  'SLA deadlines with auto-escalation',
+                  'Forwarding reason visible to citizen'
+                ].map((point, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <span className="text-green-500 text-xl">✓</span>
+                    <p className="text-gray-700">{point}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 5 - How It Works */}
+      <section className="py-16 px-4 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">How It Works</h2>
           
-          {/* Decorative circles */}
-          <div className="absolute top-0 left-0 -ml-20 -mt-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 right-0 -mr-20 -mb-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
+          <div className="space-y-8">
+            {[
+              {
+                num: 1,
+                title: 'Submit Complaint',
+                desc: 'Describe the issue, add photos, provide location'
+              },
+              {
+                num: 2,
+                title: 'Auto-Assigned to Division',
+                desc: 'Routed to the right officer based on category and area'
+              },
+              {
+                num: 3,
+                title: 'Authority Accepts and Locks Responsibility',
+                desc: 'Officer owns the complaint — no silent forwarding'
+              },
+              {
+                num: 4,
+                title: 'Track Every Step with SLA Timer',
+                desc: 'See live countdown and who is handling it'
+              },
+              {
+                num: 5,
+                title: 'Verify Resolution Before Closure',
+                desc: 'You confirm the fix — complaint stays open until you approve'
+              }
+            ].map((step, idx) => (
+              <div key={idx} className="flex gap-6 relative">
+                {/* Vertical Line */}
+                {idx < 4 && (
+                  <div className="absolute left-6 top-12 bottom-0 w-0.5 bg-gray-300" />
+                )}
+                
+                {/* Number Circle */}
+                <div className="w-12 h-12 rounded-full bg-[#3182ce] text-white flex items-center justify-center font-bold text-lg flex-shrink-0 z-10">
+                  {step.num}
+                </div>
+                
+                {/* Content */}
+                <div className="flex-1 pt-2">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{step.title}</h3>
+                  <p className="text-gray-600">{step.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Section 6 - Key Features Grid */}
+      <section className="py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
+            What Makes ResolveX Different
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                icon: <Lock size={28} />,
+                title: 'Responsibility Lock',
+                desc: 'Once accepted, authority owns it. No passing the buck.',
+                color: '#3182ce'
+              },
+              {
+                icon: <Clock size={28} />,
+                title: 'SLA Countdown',
+                desc: 'Every complaint has a deadline visible to everyone.',
+                color: '#d69e2e'
+              },
+              {
+                icon: <Camera size={28} />,
+                title: 'Photo Proof Required',
+                desc: 'Authorities upload before/after photos to close complaints.',
+                color: '#38a169'
+              },
+              {
+                icon: <User size={28} />,
+                title: 'Know Your Handler',
+                desc: 'See officer name, designation, division at all times.',
+                color: '#553c9a'
+              },
+              {
+                icon: <CheckCircle size={28} />,
+                title: 'Citizen Verification',
+                desc: 'Only you can confirm the complaint is resolved.',
+                color: '#2f855a'
+              },
+              {
+                icon: <TrendingUp size={28} />,
+                title: 'Auto-Escalation',
+                desc: 'Overdue complaints escalate automatically to seniors.',
+                color: '#e53e3e'
+              }
+            ].map((feature, idx) => (
+              <div key={idx} className="bg-white rounded-lg shadow-md p-6">
+                <div 
+                  className="w-14 h-14 rounded-lg flex items-center justify-center mb-4"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${feature.color}, ${feature.color}dd)`,
+                    color: 'white'
+                  }}
+                >
+                  {feature.icon}
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{feature.title}</h3>
+                <p className="text-gray-600">{feature.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Section 7 - CTA Banner */}
+      <section className="py-16 px-4">
+        <div 
+          className="max-w-4xl mx-auto rounded-lg shadow-lg p-12 text-center"
+          style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}
+        >
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Ready to Make Your Voice Heard?
+          </h2>
+          <p className="text-xl text-white opacity-90 mb-8">
+            Join citizens using ResolveX to create real change.
+          </p>
+          <button
+            onClick={() => navigate('/register')}
+            className="bg-white text-[#3182ce] px-8 py-3 rounded-lg font-medium text-lg hover:bg-gray-100 transition-colors"
+          >
+            Get Started Free
+          </button>
         </div>
       </section>
     </div>
@@ -262,4 +326,3 @@ const Home = () => {
 };
 
 export default Home;
-
