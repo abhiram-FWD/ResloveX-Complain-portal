@@ -1,8 +1,16 @@
+import React from 'react';
 import { getStatusColor } from '../../utils/statusHelpers';
 
-const StatusBadge = ({ status }) => (
-  <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase ${getStatusColor(status)}`}>
-    {status.replace('_', ' ')}
-  </span>
-);
+const StatusBadge = ({ status }) => {
+  if (!status) return null;
+
+  const formattedStatus = status.split('_').join(' ');
+
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(status)}`}>
+      {formattedStatus}
+    </span>
+  );
+};
+
 export default StatusBadge;

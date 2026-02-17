@@ -14,7 +14,7 @@ import CitizenDashboard from './pages/CitizenDashboard';
 import AuthorityDashboard from './pages/AuthorityDashboard';
 import PublicDashboard from './pages/PublicDashboard';
 
-// Components
+import Loader from './components/common/Loader';
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -31,7 +31,7 @@ const AppContent = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    return <Loader full text="Initializing ResolveX..." />;
   }
 
   return (
