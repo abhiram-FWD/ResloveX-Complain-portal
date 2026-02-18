@@ -67,11 +67,11 @@ const TrackComplaint = () => {
           Enter your complaint ID to check the status
         </p>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             value={searchId}
-            onChange={(e) => setSearchId(e.target.value)}
+            onChange={(e) => { setSearchId(e.target.value); setSearchError(''); }}
             onKeyPress={handleKeyPress}
             placeholder="Enter Complaint ID — e.g. REX20240001"
             className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3182ce] focus:border-transparent"
@@ -79,25 +79,25 @@ const TrackComplaint = () => {
           <button
             onClick={handleSearch}
             disabled={loading}
-            className="bg-[#3182ce] text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="w-full sm:w-auto bg-[#3182ce] text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <LoaderIcon className="animate-spin" size={20} />
             ) : (
               <Search size={20} />
             )}
-            Search
+            {loading ? 'Searching…' : 'Search'}
           </button>
         </div>
 
         {/* Search Result */}
         {searchResult && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-start justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex-1">
                 <p className="font-semibold text-gray-900 mb-1">{searchResult.title}</p>
                 <p className="text-sm text-gray-600 mb-2">
-                  Status: <span className="font-medium">{searchResult.status}</span>
+                  Status: <span className="font-medium capitalize">{searchResult.status.replace(/_/g, ' ')}</span>
                 </p>
                 <p className="text-sm text-gray-600">
                   Category: {searchResult.category} | Location: {searchResult.address}
@@ -105,7 +105,7 @@ const TrackComplaint = () => {
               </div>
               <button
                 onClick={() => navigate(`/complaint/${searchResult.complaintId}`)}
-                className="bg-[#3182ce] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                className="w-full sm:w-auto bg-[#3182ce] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
               >
                 View Full Details
               </button>
@@ -113,10 +113,12 @@ const TrackComplaint = () => {
           </div>
         )}
 
-        {/* Search Error */}
+        {/* Search Error — empty state */}
         {searchError && (
-          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600 font-medium">{searchError}</p>
+          <div className="mt-6 p-6 bg-red-50 border border-red-200 rounded-lg text-center">
+            <p className="text-3xl mb-2">🔍</p>
+            <p className="text-red-700 font-semibold">No complaint found with this ID</p>
+            <p className="text-sm text-red-500 mt-1">Double-check the ID and try again</p>
           </div>
         )}
       </div>

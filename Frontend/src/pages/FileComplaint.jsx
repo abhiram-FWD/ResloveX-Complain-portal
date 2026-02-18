@@ -282,7 +282,7 @@ const FileComplaint = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Priority
               </label>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 {['low', 'medium', 'high', 'urgent'].map(p => (
                   <label key={p} className="flex items-center cursor-pointer">
                     <input
@@ -519,8 +519,8 @@ const FileComplaint = () => {
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full text-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 sm:p-4">
+          <div className="bg-white w-full h-full sm:h-auto sm:rounded-lg sm:max-w-md p-8 text-center flex flex-col items-center justify-center">
             <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <Check className="text-white" size={32} />
             </div>

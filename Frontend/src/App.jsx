@@ -84,7 +84,15 @@ const AppContent = () => {
 function App() {
   return (
     <AuthProvider>
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: { fontSize: '14px', maxWidth: '360px' },
+          success: { iconTheme: { primary: '#38a169', secondary: '#fff' } },
+          error:   { iconTheme: { primary: '#e53e3e', secondary: '#fff' } },
+        }}
+      />
       <AppContent />
     </AuthProvider>
   );

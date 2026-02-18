@@ -47,16 +47,16 @@ const Home = () => {
           </p>
           
           {!isAuthenticated ? (
-            <div className="flex gap-4 justify-center flex-wrap">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={() => navigate('/file-complaint')}
-                className="bg-[#3182ce] text-white px-8 py-3 rounded-lg font-medium text-lg hover:bg-blue-700 transition-colors"
+                className="w-full sm:w-auto bg-[#3182ce] text-white px-8 py-3 rounded-lg font-medium text-lg hover:bg-blue-700 transition-colors"
               >
                 File a Complaint
               </button>
               <button
                 onClick={() => navigate('/track')}
-                className="border-2 border-[#3182ce] text-[#3182ce] px-8 py-3 rounded-lg font-medium text-lg hover:bg-blue-50 transition-colors"
+                className="w-full sm:w-auto border-2 border-[#3182ce] text-[#3182ce] px-8 py-3 rounded-lg font-medium text-lg hover:bg-blue-50 transition-colors"
               >
                 Track Complaint
               </button>
@@ -97,7 +97,7 @@ const Home = () => {
           className="max-w-6xl mx-auto rounded-lg shadow-lg p-8"
           style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {statsLoading ? (
               <>
                 {[1, 2, 3, 4].map(i => (

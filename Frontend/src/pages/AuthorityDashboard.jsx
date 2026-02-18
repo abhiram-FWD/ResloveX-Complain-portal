@@ -20,12 +20,12 @@ import toast from 'react-hot-toast';
 ───────────────────────────────────────────── */
 const ModalOverlay = ({ onClose, children }) => (
   <div
-    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    className="fixed inset-0 z-50 flex items-center justify-center sm:p-4"
     style={{ backgroundColor: 'rgba(0,0,0,0.55)', animation: 'fadeInOverlay 0.2s ease' }}
     onMouseDown={(e) => e.target === e.currentTarget && onClose()}
   >
     <div
-      className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+      className="bg-white w-full h-full sm:h-auto sm:rounded-2xl sm:shadow-2xl sm:max-w-md overflow-y-auto"
       style={{ animation: 'slideUpModal 0.25s cubic-bezier(0.34,1.56,0.64,1)' }}
     >
       {children}
@@ -44,6 +44,7 @@ const ModalOverlay = ({ onClose, children }) => (
     `}</style>
   </div>
 );
+
 
 /* ─────────────────────────────────────────────
    Accept Modal
@@ -601,7 +602,11 @@ const AuthorityDashboard = () => {
 
             <div className="p-6 space-y-4 max-h-[600px] overflow-y-auto">
               {filteredComplaints.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No complaints found</p>
+                <div className="text-center py-12">
+                  <p className="text-4xl mb-3">✅</p>
+                  <p className="text-gray-600 font-medium text-lg">No complaints in your division</p>
+                  <p className="text-gray-400 text-sm mt-1">You're all caught up!</p>
+                </div>
               ) : (
                 filteredComplaints.map((complaint) => (
                   <div

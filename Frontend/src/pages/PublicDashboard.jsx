@@ -5,6 +5,7 @@ import { getPublicDashboard } from '../services/complaintService';
 import StatsCard from '../components/common/StatsCard';
 import Loader from '../components/common/Loader';
 import { getStatusColor } from '../utils/statusHelpers';
+import toast from 'react-hot-toast';
 
 const PublicDashboard = () => {
   const [data, setData] = useState(null);
@@ -17,6 +18,7 @@ const PublicDashboard = () => {
         setData(response);
       } catch (err) {
         console.error('Failed to fetch public dashboard:', err);
+        toast.error('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
@@ -29,7 +31,13 @@ const PublicDashboard = () => {
   }
 
   if (!data) {
-    return <p className="text-center text-gray-500 py-12">Failed to load dashboard data</p>;
+    return (
+      <div className="max-w-md mx-auto py-16 text-center">
+        <p className="text-4xl mb-3">⚠️</p>
+        <p className="text-gray-700 font-semibold text-lg">Failed to load dashboard data</p>
+        <p className="text-gray-500 text-sm mt-1">Please refresh the page</p>
+      </div>
+    );
   }
 
   const onTimePercent = data.totalComplaints > 0 
