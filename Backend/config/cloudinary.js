@@ -10,7 +10,7 @@ cloudinary.config({
 });
 
 // Configure Cloudinary storage for multer
-const storabage = new CloudinaryStorage({
+const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'resolvex/complaints',
