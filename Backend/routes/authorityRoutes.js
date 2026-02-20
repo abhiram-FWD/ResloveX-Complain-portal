@@ -1,32 +1,27 @@
 const express = require('express');
-const {
-  getAssignedComplaints,
-  acceptComplaint,
-  forwardComplaint,
-  resolveComplaint,
-  verifyResolution,
-  getAuthorityStats,
-  getPublicDashboard,
-  getOfficerScorecard,
-} = require('../controllers/authorityController');
-const { protect } = require('../middleware/authMiddleware');
-const { authorityOnly } = require('../middleware/roleMiddleware');
+const router = express.Router();
+const authorityController = require('../controllers/authorityController');
+const adminController = require('../controllers/adminController');
+const authMiddleware = require('../middleware/authMiddleware');
+const { authorityOnly, adminOnly } = require('../middleware/roleMiddleware');
 const { upload } = require('../config/cloudinary');
 
-const router = express.Router();
+// ── Authority routes ──
+router.get('/complaints',        authMiddleware, authorityOnly, authorityController.getAssignedComplaints);
+router.post('/accept/:id',       authMiddleware, authorityOnly, authorityController.acceptComplaint);
+router.post('/inprogress/:id',   authMiddleware, authorityOnly, authorityController.markInProgress);
+router.post('/forward/:id',      authMiddleware, authorityOnly, authorityController.forwardComplaint);
+router.post('/resolve/:id',      authMiddleware, authorityOnly, upload.array('photos', 3), authorityController.resolveComplaint);
+router.post('/verify/:id',       authMiddleware, authorityController.verifyResolution);
+router.get('/stats',             authMiddleware, authorityOnly, authorityController.getAuthorityStats);
+router.get('/scorecard/:id',     authorityController.getOfficerScorecard);
+router.get('/dashboard/public',  authorityController.getPublicDashboard);
 
-// Authority-only routes
-router.get('/complaints', protect, authorityOnly, getAssignedComplaints);
-router.post('/accept/:id', protect, authorityOnly, acceptComplaint);
-router.post('/forward/:id', protect, authorityOnly, forwardComplaint);
-router.post('/resolve/:id', protect, authorityOnly, upload.array('photos', 3), resolveComplaint);
-router.get('/stats', protect, authorityOnly, getAuthorityStats);
-
-// Citizen can verify resolution
-router.post('/verify/:id', protect, verifyResolution);
-
-// Public routes
-router.get('/scorecard/:id', getOfficerScorecard);
-router.get('/dashboard/public', getPublicDashboard);
+// ── Admin routes ──
+router.get('/admin/pending',          authMiddleware, adminOnly, adminController.getPendingAuthorities);
+router.get('/admin/all-authorities',  authMiddleware, adminOnly, adminController.getAllAuthorities);
+router.post('/admin/approve/:id',     authMiddleware, adminOnly, adminController.approveAuthority);
+router.post('/admin/reject/:id',      authMiddleware, adminOnly, adminController.rejectAuthority);
+router.delete('/admin/delete/:id',    authMiddleware, adminOnly, adminController.deleteAuthority);
 
 module.exports = router;

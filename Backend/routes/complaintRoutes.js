@@ -1,25 +1,12 @@
 const express = require('express');
-const {
-  createComplaint,
-  getAllComplaints,
-  getComplaintById,
-  getMyComplaints,
-} = require('../controllers/complaintController');
-const { protect } = require('../middleware/authMiddleware');
+const router = express.Router();
+const complaintController = require('../controllers/complaintController');
+const authMiddleware = require('../middleware/authMiddleware');
 const { upload } = require('../config/cloudinary');
 
-const router = express.Router();
-
-// POST / → protect + upload.array('photos', 3) + createComplaint
-router.post('/', protect, upload.array('photos', 3), createComplaint);
-
-// GET / → getAllComplaints (public)
-router.get('/', getAllComplaints);
-
-// GET /my → protect + getMyComplaints
-router.get('/my', protect, getMyComplaints);
-
-// GET /:id → getComplaintById (public, id = complaintId string)
-router.get('/:id', getComplaintById);
+router.post('/', authMiddleware, upload.array('photos', 3), complaintController.createComplaint);
+router.get('/', complaintController.getAllComplaints);
+router.get('/my', authMiddleware, complaintController.getMyComplaints);
+router.get('/:id', complaintController.getComplaintById);
 
 module.exports = router;

@@ -1,172 +1,119 @@
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
 
-// Generate JWT token with id and role
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
-    expiresIn: '7d',
-  });
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
-// ─── REGISTER CITIZEN ───────────────────────────────
-// @desc    Register a new citizen
-// @route   POST /api/auth/register/citizen
-// @access  Public
 exports.registerCitizen = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
 
-    // Validate all required fields
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Please provide name, email, and password' });
-    }
+    if (!name || !email || !password)
+      return res.status(400).json({ success: false, message: 'Please provide all required fields' });
 
-    // Check if email already exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'Email already registered' });
-    }
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res.status(400).json({ success: false, message: 'Email already registered' });
 
-    // Create user with role: citizen
     const user = await User.create({
-      name,
-      email,
-      password,
-      role: 'citizen',
+      name, email, password,
       phone: phone || '',
+      role: 'citizen',
+      approvalStatus: 'approved'
     });
 
-    // Generate JWT token
     const token = generateToken(user._id, user.role);
+    const userObj = user.toObject();
+    delete userObj.password;
 
-    // Return user without password
-    const userResponse = await User.findById(user._id).select('-password');
-
-    res.status(201).json({
-      token,
-      user: userResponse,
-    });
+    res.status(201).json({ success: true, token, user: userObj });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// ─── REGISTER AUTHORITY ─────────────────────────────
-// @desc    Register a new authority
-// @route   POST /api/auth/register/authority
-// @access  Public
 exports.registerAuthority = async (req, res) => {
   try {
     const { name, email, password, phone, authorityInfo } = req.body;
 
-    // Validate basic fields
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Please provide name, email, and password' });
-    }
+    if (!name || !email || !password || !authorityInfo)
+      return res.status(400).json({ success: false, message: 'Please provide all required fields' });
 
-    // Validate authorityInfo fields
-    if (!authorityInfo || 
-        !authorityInfo.designation || 
-        !authorityInfo.department || 
-        !authorityInfo.division || 
-        !authorityInfo.zone || 
-        !authorityInfo.ward || 
-        !authorityInfo.jurisdictionArea || 
-        !authorityInfo.level || 
-        !authorityInfo.categories || 
-        authorityInfo.categories.length === 0) {
-      return res.status(400).json({ 
-        message: 'Please provide all required authority information: designation, department, division, zone, ward, jurisdictionArea, level, and categories' 
-      });
-    }
+    const existingUser = await User.findOne({ email });
+    if (existingUser)
+      return res.status(400).json({ success: false, message: 'Email already registered' });
 
-    // Check if email already exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'Email already registered' });
-    }
-
-    // Create user with role: authority and full authorityInfo
     const user = await User.create({
-      name,
-      email,
-      password,
-      role: 'authority',
+      name, email, password,
       phone: phone || '',
-      authorityInfo,
+      role: 'authority',
+      approvalStatus: 'pending', // ← requires admin approval
+      authorityInfo
     });
 
-    // Generate JWT token
-    const token = generateToken(user._id, user.role);
+    const userObj = user.toObject();
+    delete userObj.password;
 
-    // Return user without password
-    const userResponse = await User.findById(user._id).select('-password');
-
+    // Don't send token — they must wait for approval
     res.status(201).json({
-      token,
-      user: userResponse,
+      success: true,
+      pending: true,
+      message: 'Registration successful! Your account is pending admin approval. You will be able to login once approved.',
+      user: userObj
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// ─── LOGIN ──────────────────────────────────────────
-// @desc    Authenticate user & get token
-// @route   POST /api/auth/login
-// @access  Public
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide email and password' });
-    }
+    if (!email || !password)
+      return res.status(400).json({ success: false, message: 'Please provide email and password' });
 
-    // Find user by email (include password)
     const user = await User.findOne({ email }).select('+password');
+    if (!user)
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
-    // If user not found
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch)
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+
+    // Block pending authority accounts
+    if (user.role === 'authority' && user.approvalStatus === 'pending') {
+      return res.status(403).json({
+        success: false,
+        pending: true,
+        message: 'Your authority account is pending admin approval. Please wait for approval before logging in.'
+      });
     }
 
-    // Compare password using the comparePassword method
-    const isPasswordMatch = await user.comparePassword(password);
-
-    // If password doesn't match
-    if (!isPasswordMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    // Block rejected authority accounts
+    if (user.role === 'authority' && user.approvalStatus === 'rejected') {
+      return res.status(403).json({
+        success: false,
+        rejected: true,
+        message: 'Your authority account application was rejected. Please contact the administrator.'
+      });
     }
 
-    // Generate token
     const token = generateToken(user._id, user.role);
+    const userObj = user.toObject();
+    delete userObj.password;
 
-    // Return token, role, and user object without password
-    const userResponse = await User.findById(user._id).select('-password');
-
-    res.json({
-      token,
-      role: user.role,
-      user: userResponse,
-    });
+    res.json({ success: true, token, user: userObj });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// ─── GET CURRENT USER ───────────────────────────────
-// @desc    Get current logged-in user
-// @route   GET /api/auth/me
-// @access  Private
 exports.getMe = async (req, res) => {
   try {
-    // req.user is set by authMiddleware (already has password removed)
-    res.json({
-      user: req.user,
-    });
+    res.json({ success: true, user: req.user });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
