@@ -328,13 +328,16 @@ const ComplaintDetail = () => {
   const socket = useSocket();
 
   const [complaint, setComplaint] = useState(null);
+  const [slaInfo, setSlaInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
   const fetchComplaint = async () => {
     try {
       const data = await getComplaintById(id);
-      setComplaint(data);
+      // API returns { success, complaint, slaInfo }
+      setComplaint(data.complaint);
+      setSlaInfo(data.slaInfo || null);
       setNotFound(false);
     } catch {
       setNotFound(true);
@@ -346,19 +349,17 @@ const ComplaintDetail = () => {
   useEffect(() => {
     fetchComplaint();
   }, [id]);
-
   // Socket real-time updates
   useEffect(() => {
-    if (!socket || !id) return;
+    if (!socket.ready || !id) return;
     socket.joinComplaintRoom(id);
-
     const handleUpdate = (updated) => {
       setComplaint(updated);
       toast.success(`Status updated: ${updated.status}`);
     };
-    socket.socket.on('complaint_updated', handleUpdate);
-    return () => socket.socket.off('complaint_updated', handleUpdate);
-  }, [socket, id]);
+    socket.on('complaint_updated', handleUpdate);
+    return () => socket.off('complaint_updated', handleUpdate);
+  }, [socket.ready, id]);
 
   if (loading) return <Loader />;
 
@@ -432,11 +433,19 @@ const ComplaintDetail = () => {
 
             <div className="text-sm text-gray-700 space-y-1">
               <p>
-                <span className="font-medium">Location:</span> {complaint.address}
-                {complaint.division && `, Division: ${complaint.division}`}
-                {complaint.zone && `, Zone: ${complaint.zone}`}
-                {complaint.ward && `, Ward: ${complaint.ward}`}
+                <span className="font-medium">Location:</span> {complaint.location?.address}
+                {complaint.location?.division && `, Division: ${complaint.location.division}`}
+                {complaint.location?.zone && `, Zone: ${complaint.location.zone}`}
+                {complaint.location?.ward && `, Ward: ${complaint.location.ward}`}
               </p>
+              {slaInfo && (
+                <p>
+                  <span className="font-medium">SLA:</span>{' '}
+                  <span className={slaInfo.isOverdue ? 'text-red-600 font-semibold' : 'text-green-600'}>
+                    {slaInfo.isOverdue ? '⚠ Overdue' : `${slaInfo.daysRemaining} day(s) remaining`}
+                  </span>
+                </p>
+              )}
               <p>
                 <span className="font-medium">Created:</span> {formatDate(complaint.createdAt)}
               </p>
@@ -490,7 +499,10 @@ const ComplaintDetail = () => {
           </div>
 
           {/* Handler Info */}
-          <HandlerInfo handler={complaint.currentHandler} />
+          <HandlerInfo
+            authority={complaint.currentAuthority}
+            assignedAt={complaint.timeline?.find(e => e.action === 'accepted')?.timestamp}
+          />
 
           {/* ── Verification Card ── */}
           {showVerificationCard && (

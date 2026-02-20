@@ -7,6 +7,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
 import FileComplaint from './pages/FileComplaint';
 import TrackComplaint from './pages/TrackComplaint';
 import ComplaintDetail from './pages/ComplaintDetail';
@@ -21,18 +23,14 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return null;
 };
 
 const AppContent = () => {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
-  if (loading) {
-    return <Loader full text="Initializing ResolveX..." />;
-  }
+  if (loading) return <Loader full text="Initializing ResolveX..." />;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -40,39 +38,33 @@ const AppContent = () => {
       <Navbar />
       <main className="flex-grow container mx-auto px-4 py-8">
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/track" element={<TrackComplaint />} />
+          {/* Public */}
+          <Route path="/"              element={<Home />} />
+          <Route path="/login"         element={<Login />} />
+          <Route path="/register"      element={<Register />} />
+          <Route path="/admin/login"   element={<AdminLogin />} />
+          <Route path="/track"         element={<TrackComplaint />} />
           <Route path="/complaint/:id" element={<ComplaintDetail />} />
-          
-          {/* Protected Routes */}
-          <Route 
-            path="/file-complaint" 
-            element={
-              <ProtectedRoute roles={['citizen']}>
-                <FileComplaint />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/dashboard/citizen" 
-            element={
-              <ProtectedRoute roles={['citizen']}>
-                <CitizenDashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/dashboard/authority" 
-            element={
-              <ProtectedRoute roles={['authority']}>
-                <AuthorityDashboard />
-              </ProtectedRoute>
-            } 
-          />
           <Route path="/dashboard/public" element={<PublicDashboard />} />
-          
+
+          {/* Citizen only */}
+          <Route path="/file-complaint" element={
+            <ProtectedRoute roles={['citizen']}><FileComplaint /></ProtectedRoute>
+          } />
+          <Route path="/dashboard/citizen" element={
+            <ProtectedRoute roles={['citizen']}><CitizenDashboard /></ProtectedRoute>
+          } />
+
+          {/* Authority only */}
+          <Route path="/dashboard/authority" element={
+            <ProtectedRoute roles={['authority']}><AuthorityDashboard /></ProtectedRoute>
+          } />
+
+          {/* Admin only */}
+          <Route path="/dashboard/admin" element={
+            <ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>
+          } />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

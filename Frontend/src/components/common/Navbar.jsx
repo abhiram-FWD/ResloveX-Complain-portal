@@ -22,13 +22,13 @@ const Navbar = () => {
   };
 
   return (
-    <nav 
-      className="bg-white sticky top-0 z-[100]" 
+    <nav
+      className="bg-white sticky top-0 z-[100]"
       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
     >
       <div className="px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo with Tagline */}
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-3" onClick={closeMenu}>
             <span className="font-bold text-[#3182ce]" style={{ fontSize: '1.6rem' }}>
               ResolveX
@@ -38,7 +38,7 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* Desktop Nav */}
+          {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => (
               <NavLink
@@ -57,31 +57,39 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* Auth Buttons / User Menu (Desktop) */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* Desktop Auth */}
+          <div className="hidden md:flex items-center space-x-3">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
                 <span className="text-gray-700 font-medium flex items-center gap-2">
                   <User size={18} className="text-[#3182ce]" />
                   {truncateUsername(user?.name)}
                 </span>
-                
+
                 <span className={`px-2 py-0.5 rounded text-xs font-semibold uppercase ${
-                  user?.role === 'citizen' 
-                    ? 'bg-blue-100 text-blue-700' 
+                  user?.role === 'citizen'
+                    ? 'bg-blue-100 text-blue-700'
+                    : user?.role === 'admin'
+                    ? 'bg-red-100 text-red-700'
                     : 'bg-green-100 text-green-700'
                 }`}>
                   {user?.role}
                 </span>
 
                 <Link
-                  to={user?.role === 'authority' ? '/dashboard/authority' : '/dashboard/citizen'}
+                  to={
+                    user?.role === 'admin'
+                      ? '/dashboard/admin'
+                      : user?.role === 'authority'
+                      ? '/dashboard/authority'
+                      : '/dashboard/citizen'
+                  }
                   className="flex items-center gap-1 text-gray-600 hover:text-[#3182ce] font-medium transition-colors"
                 >
                   <LayoutDashboard size={18} />
                   Dashboard
                 </Link>
-                
+
                 <button
                   onClick={logout}
                   className="flex items-center gap-1 text-red-500 border border-red-500 px-3 py-1 rounded hover:bg-red-50 font-medium transition-colors text-sm"
@@ -104,16 +112,20 @@ const Navbar = () => {
                 >
                   Register
                 </Link>
+                {/* Admin Login — subtle */}
+                <Link
+                  to="/admin/login"
+                  className="text-gray-400 border border-gray-300 px-3 py-2 rounded font-medium hover:bg-gray-50 hover:text-gray-600 transition-colors text-sm"
+                >
+                  Admin
+                </Link>
               </div>
             )}
           </div>
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center">
-            <button
-              onClick={toggleMenu}
-              className="text-gray-600 hover:text-[#3182ce] focus:outline-none"
-            >
+            <button onClick={toggleMenu} className="text-gray-600 hover:text-[#3182ce] focus:outline-none">
               {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
@@ -136,24 +148,30 @@ const Navbar = () => {
                 {link.name}
               </NavLink>
             ))}
-            
+
             <div className="border-t border-gray-100 pt-4">
               {isAuthenticated ? (
                 <div className="flex flex-col space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-800">
-                      {truncateUsername(user?.name)}
-                    </span>
+                    <span className="font-medium text-gray-800">{truncateUsername(user?.name)}</span>
                     <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${
                       user?.role === 'citizen'
                         ? 'bg-blue-100 text-blue-700'
+                        : user?.role === 'admin'
+                        ? 'bg-red-100 text-red-700'
                         : 'bg-green-100 text-green-700'
                     }`}>
                       {user?.role}
                     </span>
                   </div>
                   <Link
-                    to={user?.role === 'authority' ? '/dashboard/authority' : '/dashboard/citizen'}
+                    to={
+                      user?.role === 'admin'
+                        ? '/dashboard/admin'
+                        : user?.role === 'authority'
+                        ? '/dashboard/authority'
+                        : '/dashboard/citizen'
+                    }
                     onClick={closeMenu}
                     className="flex items-center gap-2 text-[#3182ce] font-medium"
                   >
@@ -161,11 +179,8 @@ const Navbar = () => {
                     My Dashboard
                   </Link>
                   <button
-                    onClick={() => {
-                      logout();
-                      closeMenu();
-                    }}
-                    className="flex items-center gap-2 text-red-500 border border-red-500 px-3 py-2 rounded font-medium text-left justify-center"
+                    onClick={() => { logout(); closeMenu(); }}
+                    className="flex items-center gap-2 text-red-500 border border-red-500 px-3 py-2 rounded font-medium justify-center"
                   >
                     <LogOut size={18} />
                     Logout
@@ -173,19 +188,14 @@ const Navbar = () => {
                 </div>
               ) : (
                 <div className="flex flex-col space-y-3">
-                  <Link
-                    to="/login"
-                    onClick={closeMenu}
-                    className="block text-center text-[#3182ce] border border-[#3182ce] px-4 py-2 rounded font-medium"
-                  >
+                  <Link to="/login" onClick={closeMenu} className="block text-center text-[#3182ce] border border-[#3182ce] px-4 py-2 rounded font-medium">
                     Login
                   </Link>
-                  <Link
-                    to="/register"
-                    onClick={closeMenu}
-                    className="block text-center bg-[#3182ce] text-white px-4 py-2 rounded font-medium"
-                  >
+                  <Link to="/register" onClick={closeMenu} className="block text-center bg-[#3182ce] text-white px-4 py-2 rounded font-medium">
                     Register
+                  </Link>
+                  <Link to="/admin/login" onClick={closeMenu} className="block text-center text-gray-400 border border-gray-300 px-4 py-2 rounded font-medium text-sm">
+                    Admin Login
                   </Link>
                 </div>
               )}

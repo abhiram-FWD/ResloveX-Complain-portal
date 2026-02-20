@@ -35,9 +35,9 @@ const OfficerScorecard = ({ authorityId, stats }) => {
     : 0;
 
   const avgDays = data.avgResolutionTime || 0;
-  const rating = data.citizenSatisfaction || 0;
+  const rating = Number(data.averageRating || data.citizenSatisfaction || 0);
   const falseClosures = data.falseClosuresCaught || 0;
-  const escalations = data.escalations || 0;
+  const escalations = data.escalations || data.escalationsCaught || 0;
 
   // Determine badge
   let badge = null;

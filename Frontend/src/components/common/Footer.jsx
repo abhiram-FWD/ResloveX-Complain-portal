@@ -2,11 +2,25 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const Footer = () => {
+
+  const scrollToSection = (sectionId) => {
+    if (window.location.pathname === '/') {
+      // Already on home — scroll directly
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      // Go to home page with hash — browser handles scroll
+      window.location.href = `/#${sectionId}`;
+    }
+  };
+
   return (
     <footer className="text-white pt-12 pb-12 mt-auto" style={{ backgroundColor: '#1a202c' }}>
       <div className="container mx-auto px-8">
-        {/* Three Column Layout */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+
           {/* Column 1: Brand */}
           <div>
             <h2 className="text-2xl font-bold text-white mb-2">ResolveX</h2>
@@ -14,8 +28,8 @@ const Footer = () => {
               Accountability-Driven. Transparent. Citizen-First.
             </p>
             <p className="text-gray-400 text-sm leading-relaxed">
-              A modern complaint resolution platform that bridges the gap between citizens 
-              and authorities, ensuring every voice is heard and every issue is addressed 
+              A modern complaint resolution platform that bridges the gap between citizens
+              and authorities, ensuring every voice is heard and every issue is addressed
               with transparency and accountability.
             </p>
           </div>
@@ -52,9 +66,12 @@ const Footer = () => {
             <h3 className="text-lg font-semibold text-white mb-4">Support</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/how-it-works" className="text-gray-400 hover:text-white transition-colors duration-200 text-sm">
+                <button
+                  onClick={() => scrollToSection('how-it-works')}
+                  className="text-gray-400 hover:text-white transition-colors duration-200 text-sm text-left"
+                >
                   How It Works
-                </Link>
+                </button>
               </li>
               <li>
                 <Link to="/contact" className="text-gray-400 hover:text-white transition-colors duration-200 text-sm">
@@ -62,14 +79,20 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/privacy" className="text-gray-400 hover:text-white transition-colors duration-200 text-sm">
+                <button
+                  onClick={() => scrollToSection('features')}
+                  className="text-gray-400 hover:text-white transition-colors duration-200 text-sm text-left"
+                >
                   Privacy Policy
-                </Link>
+                </button>
               </li>
               <li>
-                <Link to="/terms" className="text-gray-400 hover:text-white transition-colors duration-200 text-sm">
+                <button
+                  onClick={() => scrollToSection('features')}
+                  className="text-gray-400 hover:text-white transition-colors duration-200 text-sm text-left"
+                >
                   Terms of Service
-                </Link>
+                </button>
               </li>
             </ul>
           </div>

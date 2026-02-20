@@ -1,12 +1,21 @@
 import { format, formatDistanceToNow } from 'date-fns';
 
-export const formatDate = (date) =>
-  format(new Date(date), 'dd MMM yyyy, h:mm a');
+export const formatDate = (date) => {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  return format(d, 'dd MMM yyyy, h:mm a');
+};
 
-export const formatRelative = (date) =>
-  formatDistanceToNow(new Date(date), { addSuffix: true });
+export const formatRelative = (date) => {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  return formatDistanceToNow(d, { addSuffix: true });
+};
 
 export const formatDuration = (ms) => {
+  if (!ms || isNaN(ms)) return '—';
   const days = Math.floor(ms / 86400000);
   const hours = Math.floor((ms % 86400000) / 3600000);
   if (days > 0) return `${days}d ${hours}h`;
@@ -14,8 +23,10 @@ export const formatDuration = (ms) => {
 };
 
 export const calculateSLARemaining = (deadline) => {
+  if (!deadline) return { isOverdue: false, daysRemaining: 0, hoursRemaining: 0, percentUsed: 0 };
   const now = new Date();
   const end = new Date(deadline);
+  if (isNaN(end.getTime())) return { isOverdue: false, daysRemaining: 0, hoursRemaining: 0, percentUsed: 0 };
   const diff = end - now;
   return {
     isOverdue: diff < 0,

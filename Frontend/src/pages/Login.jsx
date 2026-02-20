@@ -15,32 +15,36 @@ const Login = () => {
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    setError('');
-    
-    if (!email || !password) {
-      setError('Please fill in all fields');
-      return;
-    }
+  setError('');
+  
+  if (!email || !password) {
+    setError('Please fill in all fields');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const user = await login(email, password);
-      toast.success('Login successful!');
-      
-      // Redirect based on role
-      if (user.role === 'citizen') {
-        navigate('/dashboard/citizen');
-      } else if (user.role === 'authority') {
-        navigate('/dashboard/authority');
-      } else {
-        navigate('/');
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    console.log('Attempting login with:', email);
+    const user = await login(email, password);
+    console.log('Login success, user:', user);
+    toast.success('Login successful!');
+    
+    if (user.role === 'citizen') {
+      navigate('/dashboard/citizen');
+    } else if (user.role === 'authority') {
+      navigate('/dashboard/authority');
+    } else {
+      navigate('/');
     }
-  };
+  } catch (err) {
+    console.log('Login error full:', err);
+    console.log('Error response:', err.response);
+    console.log('Error message:', err.message);
+    setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {

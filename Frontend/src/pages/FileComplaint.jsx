@@ -134,10 +134,13 @@ const FileComplaint = () => {
       submitFormData.append('description', formData.description);
       submitFormData.append('priority', formData.priority);
       submitFormData.append('isAnonymous', formData.isAnonymous);
-      submitFormData.append('address', formData.address);
-      if (formData.division) submitFormData.append('division', formData.division);
-      if (formData.zone) submitFormData.append('zone', formData.zone);
-      if (formData.ward) submitFormData.append('ward', formData.ward);
+      // Backend expects location as a JSON-encoded object
+      submitFormData.append('location', JSON.stringify({
+        address: formData.address,
+        division: formData.division || undefined,
+        zone: formData.zone || undefined,
+        ward: formData.ward || undefined
+      }));
       
       formData.photos.forEach((photo) => {
         submitFormData.append('photos', photo);

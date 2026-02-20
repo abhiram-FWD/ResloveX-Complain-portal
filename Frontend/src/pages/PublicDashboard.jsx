@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FileText, CheckCircle, TrendingUp, Clock } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { FileText, CheckCircle, TrendingUp, Clock, Activity } from 'lucide-react';
 import { getPublicDashboard } from '../services/complaintService';
-import StatsCard from '../components/common/StatsCard';
 import Loader from '../components/common/Loader';
-import { getStatusColor } from '../utils/statusHelpers';
 import toast from 'react-hot-toast';
 
 const PublicDashboard = () => {
@@ -26,9 +24,7 @@ const PublicDashboard = () => {
     fetchData();
   }, []);
 
-  if (loading) {
-    return <Loader />;
-  }
+  if (loading) return <Loader />;
 
   if (!data) {
     return (
@@ -40,31 +36,15 @@ const PublicDashboard = () => {
     );
   }
 
-  const onTimePercent = data.totalComplaints > 0 
-    ? Math.round((data.resolvedOnTime / data.totalComplaints) * 100) 
-    : 0;
-
-  // Prepare chart data
-  const categoryData = data.complaintsByCategory?.map(item => ({
-    category: item._id,
-    count: item.count
-  })) || [];
-
-  const statusData = data.statusBreakdown?.map(item => ({
-    name: item._id,
-    value: item.count
-  })) || [];
-
-  const statusColors = {
-    submitted: '#718096',
-    assigned: '#3182ce',
-    accepted: '#553c9a',
-    in_progress: '#d69e2e',
-    pending_verification: '#38a169',
-    resolved: '#2f855a',
-    closed: '#1a202c',
-    reopened: '#e53e3e'
-  };
+  // Backend returns: { success, stats: { totalComplaints, totalResolved, activeComplaints, avgResolutionDays, onTimePercentage }, byCategory, byDepartment, recentResolved }
+  const stats = data.stats || {};
+  const categoryData = (data.byCategory || []).map(item => ({
+    category: item._id || 'Unknown',
+    total: item.total || 0,
+    resolved: item.resolved || 0
+  }));
+  const deptData = data.byDepartment || [];
+  const recentResolved = data.recentResolved || [];
 
   return (
     <div className="max-w-7xl mx-auto py-8">
@@ -81,151 +61,105 @@ const PublicDashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatsCard
-          title="Total Complaints"
-          value={data.totalComplaints || 0}
-          icon={<FileText size={24} />}
-          color="blue"
-        />
-        <StatsCard
-          title="Resolved"
-          value={data.resolvedComplaints || 0}
-          icon={<CheckCircle size={24} />}
-          color="green"
-        />
-        <StatsCard
-          title="On-Time Resolution"
-          value={`${onTimePercent}%`}
-          icon={<TrendingUp size={24} />}
-          color="purple"
-        />
-        <StatsCard
-          title="Avg Resolution Time"
-          value={`${data.avgResolutionDays?.toFixed(1) || 0} days`}
-          icon={<Clock size={24} />}
-          color="yellow"
-        />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          { title: 'Total Complaints', value: stats.totalComplaints ?? 0, color: '#3182ce', Icon: FileText },
+          { title: 'Total Resolved', value: stats.totalResolved ?? 0, color: '#38a169', Icon: CheckCircle },
+          { title: 'On-Time Rate', value: `${stats.onTimePercentage ?? 0}%`, color: '#805ad5', Icon: TrendingUp },
+          { title: 'Avg Resolution', value: `${stats.avgResolutionDays ?? 0} days`, color: '#d69e2e', Icon: Clock },
+        ].map(({ title, value, color, Icon }) => (
+          <div key={title} className="bg-white rounded-xl p-5 shadow-md" style={{ borderLeft: `4px solid ${color}` }}>
+            <div className="flex items-start justify-between mb-2">
+              <p className="text-sm text-gray-600 font-medium">{title}</p>
+              <div className="p-2 rounded-full" style={{ backgroundColor: `${color}20` }}>
+                <Icon size={18} style={{ color }} />
+              </div>
+            </div>
+            <p className="text-3xl font-bold" style={{ color }}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Active Complaints Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8 flex items-center gap-4">
+        <Activity className="text-blue-600" size={28} />
+        <div>
+          <p className="font-semibold text-blue-900">Active Complaints</p>
+          <p className="text-blue-700 text-sm">{stats.activeComplaints ?? 0} complaints currently being processed</p>
+        </div>
       </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Bar Chart - Complaints by Category */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-xl shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Complaints by Category</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={categoryData}>
-              <XAxis dataKey="category" angle={-45} textAnchor="end" height={100} fontSize={12} />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#3182ce" />
-            </BarChart>
-          </ResponsiveContainer>
+          {categoryData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={categoryData} margin={{ bottom: 60 }}>
+                <XAxis dataKey="category" angle={-35} textAnchor="end" fontSize={11} interval={0} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="total" name="Total" fill="#3182ce" radius={[4,4,0,0]} />
+                <Bar dataKey="resolved" name="Resolved" fill="#38a169" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-500 text-center py-16">No data yet</p>
+          )}
         </div>
 
-        {/* Pie Chart - Status Breakdown */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Status Breakdown</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={statusData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label
-              >
-                {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={statusColors[entry.name] || '#718096'} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Department Performance Table */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Department Performance</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Rank</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Department</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Total</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Resolved</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">On-Time %</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Avg Days</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.departmentPerformance?.sort((a, b) => b.onTimePercent - a.onTimePercent).map((dept, index) => {
-                const onTimeColor = dept.onTimePercent > 80 
-                  ? 'text-green-600 bg-green-50' 
-                  : dept.onTimePercent > 60 
-                  ? 'text-yellow-600 bg-yellow-50' 
-                  : 'text-red-600 bg-red-50';
-                
+        {/* Department Performance */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Department Performance</h2>
+          {deptData.length > 0 ? (
+            <div className="space-y-3 max-h-72 overflow-y-auto">
+              {deptData.map((dept, i) => {
+                const pct = dept.total > 0 ? Math.round((dept.resolved / dept.total) * 100) : 0;
+                const barColor = pct >= 75 ? '#38a169' : pct >= 50 ? '#d69e2e' : '#e53e3e';
                 return (
-                  <tr key={dept.department} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm text-gray-700">{index + 1}</td>
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900">{dept.department}</td>
-                    <td className="py-3 px-4 text-sm text-gray-700">{dept.total}</td>
-                    <td className="py-3 px-4 text-sm text-gray-700">{dept.resolved}</td>
-                    <td className="py-3 px-4">
-                      <span className={`inline-block px-2 py-1 rounded text-sm font-semibold ${onTimeColor}`}>
-                        {dept.onTimePercent}%
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-gray-700">{dept.avgDays.toFixed(1)}</td>
-                  </tr>
+                  <div key={i}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium text-gray-700 truncate">{dept._id || 'Unknown'}</span>
+                      <span className="text-gray-500 ml-2">{dept.resolved}/{dept.total}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                    </div>
+                  </div>
                 );
               })}
-              {(!data.departmentPerformance || data.departmentPerformance.length === 0) && (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
-                    No department data available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-16">No department data yet</p>
+          )}
         </div>
       </div>
 
-      {/* Recent Resolved Complaints */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      {/* Recently Resolved Complaints */}
+      <div className="bg-white rounded-xl shadow-md p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Recently Resolved Complaints</h2>
         <div className="space-y-4">
-          {data.recentResolved?.slice(0, 5).map(complaint => (
+          {recentResolved.length > 0 ? recentResolved.map(complaint => (
             <div key={complaint._id} className="border-l-4 border-green-500 pl-4 py-2">
               <h3 className="font-semibold text-gray-900">{complaint.title}</h3>
               <p className="text-sm text-gray-600 mt-1">
-                Resolved by <span className="font-medium">{complaint.resolvedBy?.name}</span>, {complaint.resolvedBy?.designation}
-                {complaint.resolvedBy?.division && `, ${complaint.resolvedBy.division}`}
-              </p>
-              <div className="flex items-center gap-4 mt-2">
-                <p className="text-sm text-gray-600">
-                  Resolved in <span className="font-medium text-green-600">{complaint.resolutionDays} days</span>
-                </p>
-                {complaint.citizenRating && (
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map(star => (
-                      <span key={star} className={star <= complaint.citizenRating ? 'text-yellow-500' : 'text-gray-300'}>
-                        ★
-                      </span>
-                    ))}
-                  </div>
+                Category: <span className="font-medium">{complaint.category}</span>
+                {complaint.currentAuthority?.name && (
+                  <> · Handled by <span className="font-medium">{complaint.currentAuthority.name}</span>
+                  {complaint.currentAuthority?.authorityInfo?.designation && 
+                    ` (${complaint.currentAuthority.authorityInfo.designation})`}</>
                 )}
-              </div>
+              </p>
+              {complaint.citizenVerification?.rating > 0 && (
+                <div className="flex items-center gap-1 mt-1">
+                  {[1,2,3,4,5].map(star => (
+                    <span key={star} className={star <= complaint.citizenVerification.rating ? 'text-yellow-500' : 'text-gray-300'}>★</span>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-          {(!data.recentResolved || data.recentResolved.length === 0) && (
+          )) : (
             <p className="text-gray-500 text-center py-8">No recently resolved complaints</p>
           )}
         </div>

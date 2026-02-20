@@ -9,13 +9,15 @@ const ComplaintCard = ({ complaint, onClick }) => {
     title,
     category,
     priority,
-    address,
-    division,
+    location,
     status,
-    handler,
+    currentAuthority,
     createdAt,
     slaDeadline
   } = complaint;
+
+  const address = location?.address;
+  const division = location?.division;
 
   // Check if overdue
   const isOverdue = slaDeadline && new Date(slaDeadline) < new Date() && 
@@ -73,10 +75,12 @@ const ComplaintCard = ({ complaint, onClick }) => {
       )}
 
       {/* Handler Info */}
-      {handler && (
+      {currentAuthority && (
         <div className="text-sm text-gray-700 mb-2">
-          <span className="font-medium">Handling:</span> {handler.name} — {handler.designation}
-          {handler.division && `, ${handler.division}`}
+          <span className="font-medium">Handling:</span>{' '}
+          {currentAuthority.name}
+          {currentAuthority.authorityInfo?.designation && ` — ${currentAuthority.authorityInfo.designation}`}
+          {currentAuthority.authorityInfo?.division && `, ${currentAuthority.authorityInfo.division}`}
         </div>
       )}
 

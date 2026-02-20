@@ -1,38 +1,37 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 
-export const useSocket = (userId, division = null) => {
+export const useSocket = (userId = null, division = null) => {
   const socketRef = useRef(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Connect to backend socket
-    socketRef.current = io(import.meta.env.VITE_API_URL, {
+    const socket = io(import.meta.env.VITE_API_URL, {
       transports: ['websocket'],
       autoConnect: true,
     });
 
-    const socket = socketRef.current;
+    socketRef.current = socket;
 
-    // Join personal notification room
-    if (userId) {
-      socket.emit('join_user_room', { userId });
-    }
+    socket.on('connect', () => {
+      setReady(true);
+      if (userId) socket.emit('join_user_room', { userId });
+      if (division) socket.emit('join_division_room', { division });
+    });
 
-    // Join division room (for authorities)
-    if (division) {
-      socket.emit('join_division_room', { division });
-    }
-
-    // Cleanup on unmount
     return () => {
       socket.disconnect();
+      socketRef.current = null;
+      setReady(false);
     };
   }, [userId, division]);
 
-  // joinComplaintRoom: call this to get live updates for a complaint
   const joinComplaintRoom = (complaintId) => {
     socketRef.current?.emit('join_complaint_room', { complaintId });
   };
 
-  return { socket: socketRef.current, joinComplaintRoom };
+  const on = (event, handler) => socketRef.current?.on(event, handler);
+  const off = (event, handler) => socketRef.current?.off(event, handler);
+
+  return { socketRef, joinComplaintRoom, on, off, ready };
 };

@@ -17,6 +17,9 @@ export const getMyComplaints = async () =>
 export const acceptComplaint = async (id, note) =>
   (await api.post(`/authority/accept/${id}`, { note })).data;
 
+export const markInProgress = async (id) =>
+  (await api.post(`/authority/inprogress/${id}`)).data;
+
 export const forwardComplaint = async (id, toAuthorityId, reason) =>
   (await api.post(`/authority/forward/${id}`, 
   { toAuthorityId, reason })).data;
@@ -26,9 +29,8 @@ export const resolveComplaint = async (id, formData) =>
     headers: { 'Content-Type': 'multipart/form-data' }
   })).data;
 
-export const verifyResolution = async (id, isResolved, rating, feedback) =>
-  (await api.post(`/authority/verify/${id}`, 
-  { isResolved, rating, feedback })).data;
+export const verifyResolution = async (id, data) =>
+  (await api.post(`/authority/verify/${id}`, data)).data;
 
 export const getPublicDashboard = async () =>
   (await api.get('/authority/dashboard/public')).data;

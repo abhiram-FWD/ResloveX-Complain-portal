@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { getUserComplaints } from '../services/complaintService';
+import { getMyComplaints } from '../services/complaintService';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../hooks/useSocket';
 import ComplaintCard from '../components/complaint/ComplaintCard';
@@ -12,8 +12,8 @@ import toast from 'react-hot-toast';
 const CitizenDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const socket = useSocket();
-  
+  const { socketRef } = useSocket(user?._id);
+
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -21,7 +21,7 @@ const CitizenDashboard = () => {
   useEffect(() => {
     const fetchComplaints = async () => {
       try {
-        const data = await getUserComplaints();
+        const data = await getMyComplaints();
         setComplaints(data.complaints || []);
       } catch (err) {
         toast.error('Failed to fetch complaints');
@@ -34,19 +34,19 @@ const CitizenDashboard = () => {
 
   // Socket notifications
   useEffect(() => {
-    if (!socket || !user) return;
+    const socket = socketRef?.current;
+    if (!socket) return;
 
     const handleNotification = (notification) => {
       toast.success(notification.message || 'New update on your complaint');
-      // Optionally refresh complaints
     };
 
-    socket.socket.on('notification', handleNotification);
+    socket.on('notification', handleNotification);
 
     return () => {
-      socket.socket.off('notification', handleNotification);
+      socket.off('notification', handleNotification);
     };
-  }, [socket, user]);
+  }, [socketRef?.current]);
 
   // Calculate stats
   const stats = {

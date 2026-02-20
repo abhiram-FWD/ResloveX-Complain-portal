@@ -91,20 +91,27 @@ const TrackComplaint = () => {
         </div>
 
         {/* Search Result */}
-        {searchResult && (
+        {searchResult && searchResult.complaint && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="flex-1">
-                <p className="font-semibold text-gray-900 mb-1">{searchResult.title}</p>
+                <p className="font-semibold text-gray-900 mb-1">{searchResult.complaint.title}</p>
                 <p className="text-sm text-gray-600 mb-2">
-                  Status: <span className="font-medium capitalize">{searchResult.status.replace(/_/g, ' ')}</span>
+                  Status: <span className="font-medium capitalize">{searchResult.complaint.status.replace(/_/g, ' ')}</span>
                 </p>
                 <p className="text-sm text-gray-600">
-                  Category: {searchResult.category} | Location: {searchResult.address}
+                  Category: {searchResult.complaint.category} | Location: {searchResult.complaint.location?.address}
                 </p>
+                {searchResult.slaInfo && (
+                  <p className="text-sm mt-1">
+                    <span className={searchResult.slaInfo.isOverdue ? 'text-red-600 font-medium' : 'text-green-600'}>
+                      {searchResult.slaInfo.isOverdue ? '⚠ Overdue' : `${searchResult.slaInfo.daysRemaining} days remaining`}
+                    </span>
+                  </p>
+                )}
               </div>
               <button
-                onClick={() => navigate(`/complaint/${searchResult.complaintId}`)}
+                onClick={() => navigate(`/complaint/${searchResult.complaint.complaintId}`)}
                 className="w-full sm:w-auto bg-[#3182ce] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
               >
                 View Full Details
